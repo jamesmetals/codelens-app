@@ -2,6 +2,12 @@
 
 Aplicativo para organizar **blocos de estudo por tecnologia**: crie tecnologias (ex.: React, SQL, IA), adicione conteúdos/aulas com código editável e **anotações laterais** vinculadas a trechos do código. Ideal para estudo e revisão com backup local em **SQLite** (navegador) e export em Markdown ou impressão (PDF).
 
+## Ultima versao funcional
+
+- Versao registrada: `0.1.0`
+- Data do snapshot: `2026-04-01`
+- Referencia detalhada: `VERSAO_FUNCIONAL.md`
+
 ## O que o app faz
 
 - **Tecnologias** – Organize por assunto (frontend, backend, banco de dados, etc.).
