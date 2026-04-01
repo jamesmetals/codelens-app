@@ -1,0 +1,13 @@
+.git
+.vercel
+node_modules
+dist
+dist-ssr
+.env
+.env.*
+desktop.ini
+src-tauri
+docs
+telas_googlestich
+ANALISE_E_SUGESTOES.md
+Iniciar-Codelens.bat
