@@ -10,12 +10,45 @@ import StudyRoom from "./components/study/StudyRoom";
 import TechnologyContentsList from "./components/home/TechnologyContentsList";
 
 function App() {
-  const [activeTechnology, setActiveTechnology] = useState(technologies[0]);
+  const [techList, setTechList] = useState(() => {
+    const saved = localStorage.getItem("codenlens_techs");
+    return saved ? JSON.parse(saved) : technologies;
+  });
+  
+  const [activeTechnology, setActiveTechnology] = useState(techList[0]);
   const [activeLesson, setActiveLesson] = useState(null);
   const [isDevBriefOpen, setIsDevBriefOpen] = useState(false);
+  const [contextCode, setContextCode] = useState("");
   
   // view manager
   const [currentView, setCurrentView] = useState("home"); // "home", "tech-list", "study"
+
+  // Persistence effect
+  useEffect(() => {
+    localStorage.setItem("codenlens_techs", JSON.stringify(techList));
+  }, [techList]);
+
+  // Update active tech when list changes (to keep object reference fresh)
+  useEffect(() => {
+    if (activeTechnology) {
+      const updated = techList.find(t => t.name === activeTechnology.name);
+      if (updated) setActiveTechnology(updated);
+    }
+  }, [techList]);
+
+  const handleUpdateContent = (techName, updatedContent) => {
+    setTechList(prev => prev.map(t => {
+      if (t.name === techName) {
+        const contentIdx = t.contents.findIndex(c => c.id === updatedContent.id);
+        const newContents = contentIdx === -1 
+          ? [updatedContent, ...t.contents] 
+          : t.contents.map(c => c.id === updatedContent.id ? updatedContent : c);
+        
+        return { ...t, contents: newContents };
+      }
+      return t;
+    }));
+  };
 
   useEffect(() => {
     if (currentView !== "home") return;
@@ -94,7 +127,7 @@ function App() {
             <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
               <div className="grid gap-6">
                 <TechnologySpotlight 
-                  technologies={technologies} 
+                  technologies={techList} 
                   activeTechnology={activeTechnology} 
                   setActiveTechnology={setActiveTechnology}
                   onSelectTechnology={() => setCurrentView("tech-list")} 
@@ -125,7 +158,11 @@ function App() {
           activeTechnology={activeTechnology}
           activeLesson={activeLesson}
           onBack={() => setCurrentView("tech-list")}
-          onOpenDevBrief={() => setIsDevBriefOpen(true)}
+          onOpenDevBrief={(code) => {
+            setContextCode(code);
+            setIsDevBriefOpen(true);
+          }}
+          onUpdateContent={(updated) => handleUpdateContent(activeTechnology.name, updated)}
         />
       )}
 
@@ -133,6 +170,7 @@ function App() {
       <DevBriefPanel 
         isOpen={isDevBriefOpen} 
         onClose={() => setIsDevBriefOpen(false)} 
+        initialCode={contextCode}
       />
     </div>
   );
