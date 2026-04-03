@@ -1,7 +1,15 @@
-import { BookOpen, User, Bell, Search, Menu } from "lucide-react";
+import { Bell, BookOpen, Cloud, Menu, Search, User } from "lucide-react";
+import { getDisplayName } from "../../studySync";
 
-export default function Header() {
-  const isLogged = true; // Simulating logged-in state as requested
+export default function Header({
+  authUser,
+  onOpenAccount,
+  onSignInWithGoogle,
+  supabaseConfigured,
+  syncNotice,
+}) {
+  const isLogged = Boolean(authUser);
+  const displayName = getDisplayName(authUser);
 
   return (
     <header
@@ -44,23 +52,28 @@ export default function Header() {
                 <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-rose-500 border border-[#040D17]" />
               </button>
               
-              <div className="flex items-center gap-3 cursor-pointer group">
+              <button type="button" className="flex items-center gap-3 cursor-pointer group" onClick={onOpenAccount}>
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-semibold text-white group-hover:text-sky-300 transition-colors">James Batista</p>
-                  <p className="text-[10px] text-slate-400">Plano Pro</p>
+                  <p className="text-sm font-semibold text-white group-hover:text-sky-300 transition-colors">{displayName}</p>
+                  <div className="flex items-center justify-end gap-1 text-[10px] text-slate-400">
+                    <Cloud className="h-3 w-3" />
+                    <span className="max-w-[180px] truncate">{syncNotice || "Conta conectada"}</span>
+                  </div>
                 </div>
                 <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center border border-white/10 shadow-lg group-hover:ring-2 group-hover:ring-sky-500/50 transition-all">
                   <User className="h-5 w-5 text-white" />
                 </div>
-              </div>
+              </button>
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <button className="text-sm font-medium text-slate-300 hover:text-white transition-colors px-3 py-2">
-                Entrar
-              </button>
-              <button className="text-sm font-semibold text-white bg-sky-500 hover:bg-sky-400 transition-colors px-4 py-2 rounded-full shadow-[0_0_15px_rgba(93,169,255,0.3)]">
-                Cadastrar
+              <button
+                type="button"
+                onClick={onSignInWithGoogle}
+                disabled={!supabaseConfigured}
+                className="text-sm font-semibold text-white bg-sky-500 hover:bg-sky-400 transition-colors px-4 py-2 rounded-full shadow-[0_0_15px_rgba(93,169,255,0.3)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Entrar com Google
               </button>
             </div>
           )}

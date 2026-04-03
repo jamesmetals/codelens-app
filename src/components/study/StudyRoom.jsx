@@ -58,20 +58,31 @@ export default function StudyRoom({ activeTechnology, activeLesson, onBack, onOp
   const [currentCode, setCurrentCode] = useState(activeLesson?.fullCode || "");
   const [notes, setNotes] = useState(activeLesson?.studyNotes || []);
   const [activeSpanId, setActiveSpanId] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState("");
 
   // IA state
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState("");
 
-  const handleSave = () => {
-    onUpdateContent({
-      ...activeLesson,
-      title: localTitle,
-      summary: localSummary,
-      fullCode: currentCode,
-      studyNotes: notes,
-      highlights: notes.map((n) => n.codeSnippet).filter(Boolean).slice(0, 3),
-    });
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveFeedback("");
+    try {
+      const result = await onUpdateContent({
+        ...activeLesson,
+        title: localTitle,
+        summary: localSummary,
+        fullCode: currentCode,
+        studyNotes: notes,
+        highlights: notes.map((n) => n.codeSnippet).filter(Boolean).slice(0, 3),
+      });
+      setSaveFeedback(result?.location === "cloud" ? "Salvo na sua conta Google." : "Salvo localmente neste dispositivo.");
+    } catch (error) {
+      setSaveFeedback(error.message || "Falha ao salvar o conteudo.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleGenerateSummary = async () => {
@@ -143,12 +154,17 @@ export default function StudyRoom({ activeTechnology, activeLesson, onBack, onOp
         </div>
 
         <div className="flex items-center gap-3">
+          {saveFeedback ? (
+            <p className="hidden text-[11px] text-slate-400 sm:block">{saveFeedback}</p>
+          ) : null}
+
           <button
             onClick={handleSave}
-            className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 px-3 py-1.5 rounded-lg font-medium text-xs hover:bg-emerald-500/20 transition-all active:scale-95"
+            disabled={isSaving}
+            className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 px-3 py-1.5 rounded-lg font-medium text-xs hover:bg-emerald-500/20 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Save className="h-3.5 w-3.5" />
-            Salvar
+            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            {isSaving ? "Salvando..." : "Salvar"}
           </button>
 
           <button
