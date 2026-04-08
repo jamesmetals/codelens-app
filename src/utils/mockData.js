@@ -2,7 +2,9 @@ import { History, Clock3, SearchCheck, GraduationCap, Bug, Wand2, Code2 } from "
 
 export const technologies = [
   {
+    id: "react",
     name: "React",
+    image: null,
     progress: 68,
     lessons: 14,
     aiSessions: 12,
@@ -46,7 +48,9 @@ export const technologies = [
     ]
   },
   {
+    id: "sql",
     name: "SQL",
+    image: null,
     progress: 54,
     lessons: 9,
     aiSessions: 7,
@@ -78,7 +82,9 @@ export const technologies = [
     ]
   },
   {
+    id: "ia",
     name: "IA",
+    image: null,
     progress: 71,
     lessons: 11,
     aiSessions: 16,
@@ -101,7 +107,9 @@ export const technologies = [
     ]
   },
   {
+    id: "rust",
     name: "Rust",
+    image: null,
     progress: 33,
     lessons: 6,
     aiSessions: 4,

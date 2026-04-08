@@ -1,9 +1,10 @@
 import { useState } from "react";
 import {
   ArrowLeft, Plus, Search, LayoutList, LayoutGrid, AlignJustify,
-  GripVertical, Tag, MessageSquare, BookOpen, Pencil, CheckCircle2, Clock,
+  GripVertical, BookOpen, Pencil, CheckCircle2, Clock,
   Trash2, AlertTriangle
 } from "lucide-react";
+import TechnologyArtwork from "./TechnologyArtwork";
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
@@ -234,9 +235,7 @@ export default function TechnologyContentsList({ activeTechnology, onBack, onOpe
           <div>
             <p className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-3">Tecnologia ativa</p>
             <div className="flex items-center gap-3 bg-white/5 border border-white/8 rounded-xl p-3">
-              <div className="w-9 h-9 rounded-lg bg-sky-500/20 border border-sky-500/30 flex items-center justify-center shrink-0">
-                <BookOpen className="h-4 w-4 text-sky-400" />
-              </div>
+              <TechnologyArtwork technology={activeTechnology} className="h-11 w-11 shrink-0 rounded-xl" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{activeTechnology.name}</p>
                 <p className="text-[10px] text-slate-400">{contents.length} conteúdos</p>
@@ -298,17 +297,17 @@ export default function TechnologyContentsList({ activeTechnology, onBack, onOpe
                   { id: "lista",    icon: LayoutList,   label: "Lista" },
                   { id: "blocos",   icon: LayoutGrid,   label: "Blocos" },
                   { id: "compacto", icon: AlignJustify, label: "Compacta" },
-                ].map(({ id, icon: IconComponent, label }) => (
+                ].map((viewOption) => (
                   <button
-                    key={id}
-                    onClick={() => setView(id)}
+                    key={viewOption.id}
+                    onClick={() => setView(viewOption.id)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      view === id
+                      view === viewOption.id
                         ? "bg-white/10 text-white"
                         : "text-slate-500 hover:text-slate-300"
                     }`}
                   >
-                    <IconComponent className="h-3.5 w-3.5" /> {label}
+                    {viewOption.icon({ className: "h-3.5 w-3.5" })} {viewOption.label}
                   </button>
                 ))}
               </div>

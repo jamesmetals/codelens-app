@@ -4,6 +4,7 @@ import anime from "animejs";
 import { technologies } from "./utils/mockData";
 import { getAuthRedirectUrl, supabase, supabaseConfigured, supabaseStudyEntriesTable } from "./supabase";
 import {
+  createTechnologyId,
   createStudyEntryPayload,
   extractModifiedLessons,
   getFriendlySyncError,
@@ -14,7 +15,8 @@ import {
 } from "./studySync";
 import Header from "./components/home/Header";
 import HeroSection from "./components/home/HeroSection";
-import { TechnologySpotlight, ContentPreviewAsider } from "./components/home/HomeWidgets";
+import { TechnologySpotlight } from "./components/home/HomeWidgets";
+import TechnologyModal from "./components/home/TechnologyModal";
 import DevBriefPanel from "./components/devbrief/DevBriefPanel";
 import StudyRoom from "./components/study/StudyRoom";
 import TechnologyContentsList from "./components/home/TechnologyContentsList";
@@ -35,11 +37,17 @@ function App() {
   const [activeLesson, setActiveLesson] = useState(null);
   const [isDevBriefOpen, setIsDevBriefOpen] = useState(false);
   const [contextCode, setContextCode] = useState("");
+  const [devBriefSeed, setDevBriefSeed] = useState(0);
   const [currentView, setCurrentView] = useState("home"); // "home", "tech-list", "study"
+  const [technologyModal, setTechnologyModal] = useState({
+    open: false,
+    mode: "create",
+    technology: null,
+  });
 
   const applyTechList = (nextTechs) => {
     setTechList(nextTechs);
-    setActiveTechnology((current) => nextTechs.find((tech) => tech.name === current?.name) || nextTechs[0] || technologies[0]);
+    setActiveTechnology((current) => nextTechs.find((tech) => tech.id === current?.id) || nextTechs[0] || technologies[0]);
     setActiveLesson((current) => {
       if (!current) return null;
 
@@ -56,6 +64,26 @@ function App() {
     const nextTechs = readStoredTechs(getStorageKey(userId));
     applyTechList(nextTechs);
     return nextTechs;
+  };
+
+  const openCreateTechnologyModal = () => {
+    setTechnologyModal({
+      open: true,
+      mode: "create",
+      technology: null,
+    });
+  };
+
+  const openEditTechnologyModal = (technology) => {
+    setTechnologyModal({
+      open: true,
+      mode: "edit",
+      technology,
+    });
+  };
+
+  const closeTechnologyModal = () => {
+    setTechnologyModal((current) => ({ ...current, open: false }));
   };
 
   const migrateGuestStudyToCloud = async (user) => {
@@ -107,7 +135,7 @@ function App() {
 
       if (error) throw error;
 
-      const merged = mergeStudyEntries(data || []);
+      const merged = mergeStudyEntries(data || [], readStoredTechs(getStorageKey(user.id)));
       applyTechList(merged);
       writeStoredTechs(getStorageKey(user.id), merged);
       setSyncNotice("Conteudo sincronizado com sua conta Google.");
@@ -126,11 +154,109 @@ function App() {
 
   useEffect(() => {
     if (activeTechnology) {
-      const updated = techList.find((tech) => tech.name === activeTechnology.name);
+      const updated = techList.find((tech) => tech.id === activeTechnology.id);
       if (updated) setActiveTechnology(updated);
     }
-  }, [techList]);
+  }, [techList, activeTechnology]);
 
+  const handleSaveTechnology = async (technologyDraft) => {
+    const nextName = String(technologyDraft?.name || "").trim();
+
+    if (!nextName) {
+      return { ok: false, error: "Informe um nome para a tecnologia." };
+    }
+
+    const hasDuplicate = techList.some((tech) => (
+      tech.name.toLowerCase() === nextName.toLowerCase()
+      && tech.id !== technologyDraft?.id
+    ));
+
+    if (hasDuplicate) {
+      return { ok: false, error: "Ja existe uma tecnologia com esse nome." };
+    }
+
+    const sanitizedImage = technologyDraft?.image?.src
+      ? {
+        src: technologyDraft.image.src,
+        aspectRatio: technologyDraft.image.aspectRatio,
+        zoom: technologyDraft.image.zoom,
+        offsetX: technologyDraft.image.offsetX,
+        offsetY: technologyDraft.image.offsetY,
+      }
+      : null;
+
+    const isEditing = Boolean(technologyDraft?.id);
+
+    if (isEditing) {
+      const previousTechnology = techList.find((tech) => tech.id === technologyDraft.id);
+
+      if (!previousTechnology) {
+        return { ok: false, error: "Tecnologia nao encontrada para edicao." };
+      }
+
+      if (
+        previousTechnology.name !== nextName
+        && supabaseConfigured
+        && supabase
+        && authUser?.id
+      ) {
+        try {
+          setSyncNotice("Atualizando o nome da tecnologia na nuvem...");
+          const { error } = await supabase
+            .from(supabaseStudyEntriesTable)
+            .update({ technology_name: nextName })
+            .eq("user_id", authUser.id)
+            .eq("technology_name", previousTechnology.name);
+
+          if (error) throw error;
+
+          setLastSyncedAt(new Date().toISOString());
+          setAuthError("");
+        } catch (error) {
+          return { ok: false, error: getFriendlySyncError(error) };
+        }
+      }
+
+      const nextTechList = techList.map((tech) => (
+        tech.id === technologyDraft.id
+          ? {
+            ...tech,
+            name: nextName,
+            image: sanitizedImage,
+          }
+          : tech
+      ));
+
+      applyTechList(nextTechList);
+      setSyncNotice(
+        previousTechnology.name !== nextName && authUser
+          ? "Tecnologia atualizada e alinhada com sua conta Google."
+          : "Tecnologia atualizada neste dispositivo.",
+      );
+
+      return { ok: true };
+    }
+
+    const nextTechnology = {
+      id: createTechnologyId(nextName),
+      name: nextName,
+      image: sanitizedImage,
+      progress: 0,
+      lessons: 0,
+      aiSessions: 0,
+      currentLesson: "",
+      nextFocus: "",
+      note: "",
+      contents: [],
+    };
+
+    applyTechList([nextTechnology, ...techList]);
+    setActiveTechnology(nextTechnology);
+    setSyncNotice("Tecnologia adicionada neste dispositivo.");
+    return { ok: true };
+  };
+
+  /* eslint-disable react-hooks/exhaustive-deps -- auth bootstrap is intentionally mounted once. */
   useEffect(() => {
     if (!supabaseConfigured || !supabase) {
       loadLocalTechList();
@@ -195,16 +321,20 @@ function App() {
       subscription.unsubscribe();
     };
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
-  const handleUpdateContent = async (techName, updatedContent) => {
+  const handleUpdateContent = async (techId, updatedContent) => {
+    const targetTechnology = techList.find((tech) => tech.id === techId);
+    const technologyName = targetTechnology?.name || activeTechnology?.name;
+
     const nextTechList = techList.map((tech) => {
-      if (tech.name === techName) {
+      if (tech.id === techId) {
         const contentIdx = tech.contents.findIndex((content) => content.id === updatedContent.id);
         const newContents = contentIdx === -1
           ? [updatedContent, ...tech.contents]
           : tech.contents.map((content) => (content.id === updatedContent.id ? updatedContent : content));
 
-        return { ...tech, contents: newContents };
+        return { ...tech, contents: newContents, lessons: newContents.length };
       }
 
       return tech;
@@ -219,7 +349,7 @@ function App() {
 
     try {
       setSyncNotice("Salvando seu estudo na nuvem...");
-      const payload = createStudyEntryPayload(authUser.id, techName, updatedContent);
+      const payload = createStudyEntryPayload(authUser.id, technologyName, updatedContent);
       const { error } = await supabase
         .from(supabaseStudyEntriesTable)
         .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" });
@@ -389,20 +519,19 @@ function App() {
 
         {currentView === "home" && (
           <>
-            <HeroSection activeTechnology={activeTechnology} />
+            <HeroSection />
 
-            <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-              <div className="grid gap-6">
-                <TechnologySpotlight 
-                  technologies={techList} 
-                  activeTechnology={activeTechnology} 
-                  setActiveTechnology={setActiveTechnology}
-                  onSelectTechnology={() => setCurrentView("tech-list")} 
-                />
-              </div>
-
-              <ContentPreviewAsider 
-                 activeTechnology={activeTechnology} 
+            <section className="grid gap-6">
+              <TechnologySpotlight
+                technologies={techList}
+                activeTechnology={activeTechnology}
+                setActiveTechnology={setActiveTechnology}
+                onCreateTechnology={openCreateTechnologyModal}
+                onEditTechnology={openEditTechnologyModal}
+                onSelectTechnology={(technology) => {
+                  setActiveTechnology(technology);
+                  setCurrentView("tech-list");
+                }}
               />
             </section>
           </>
@@ -427,17 +556,27 @@ function App() {
           onBack={() => setCurrentView("tech-list")}
           onOpenDevBrief={(code) => {
             setContextCode(code);
+            setDevBriefSeed((current) => current + 1);
             setIsDevBriefOpen(true);
           }}
-          onUpdateContent={(updated) => handleUpdateContent(activeTechnology.name, updated)}
+          onUpdateContent={(updated) => handleUpdateContent(activeTechnology.id, updated)}
         />
       )}
 
       {/* Camada do DevBrief AI */}
       <DevBriefPanel 
+        key={devBriefSeed}
         isOpen={isDevBriefOpen} 
         onClose={() => setIsDevBriefOpen(false)} 
         initialCode={contextCode}
+      />
+
+      <TechnologyModal
+        isOpen={technologyModal.open}
+        mode={technologyModal.mode}
+        technology={technologyModal.technology}
+        onClose={closeTechnologyModal}
+        onSave={handleSaveTechnology}
       />
 
       {showAccountPanel && authUser ? (

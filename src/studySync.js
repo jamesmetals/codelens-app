@@ -11,6 +11,55 @@ function normalizeArray(value) {
   return Array.isArray(value) ? cloneValue(value) : [];
 }
 
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function slugify(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+}
+
+function normalizeTechnologyImage(image) {
+  if (!image?.src) return null;
+
+  const aspectRatio = Number(image.aspectRatio);
+  const zoom = Number(image.zoom);
+  const offsetX = Number(image.offsetX);
+  const offsetY = Number(image.offsetY);
+
+  return {
+    src: String(image.src),
+    aspectRatio: Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1,
+    zoom: Number.isFinite(zoom) ? clamp(zoom, 1, 3) : 1,
+    offsetX: Number.isFinite(offsetX) ? clamp(offsetX, -1, 1) : 0,
+    offsetY: Number.isFinite(offsetY) ? clamp(offsetY, -1, 1) : 0,
+  };
+}
+
+function normalizeTechnology(technology, index = 0) {
+  const name = String(technology?.name || "").trim() || `Tecnologia ${index + 1}`;
+  const contents = normalizeArray(technology?.contents);
+  const normalizedLessons = Number(technology?.lessons);
+
+  return {
+    ...cloneValue(technology || {}),
+    id: String(technology?.id || slugify(name) || `tecnologia-${index + 1}`),
+    name,
+    image: normalizeTechnologyImage(technology?.image),
+    lessons: Number.isFinite(normalizedLessons) ? normalizedLessons : contents.length,
+    contents,
+  };
+}
+
+function normalizeTechnologies(list) {
+  return normalizeArray(list).map((technology, index) => normalizeTechnology(technology, index));
+}
+
 function lessonSnapshot(lesson) {
   return JSON.stringify({
     title: lesson?.title ?? "",
@@ -22,11 +71,20 @@ function lessonSnapshot(lesson) {
 }
 
 export function cloneTechnologies() {
-  return cloneValue(technologies);
+  return normalizeTechnologies(technologies);
 }
 
 export function getStorageKey(userId) {
   return userId ? `codenlens_techs_${userId}` : GUEST_STORAGE_KEY;
+}
+
+export function createTechnologyId(name) {
+  const base = slugify(name) || "tecnologia";
+  const suffix = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).slice(2, 10);
+
+  return `${base}-${suffix}`;
 }
 
 export function getDisplayName(authUser) {
@@ -48,7 +106,8 @@ export function readStoredTechs(storageKey) {
     if (!raw) return fallback;
 
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length ? parsed : fallback;
+    const normalized = normalizeTechnologies(parsed);
+    return normalized.length ? normalized : fallback;
   } catch {
     return fallback;
   }
@@ -57,7 +116,7 @@ export function readStoredTechs(storageKey) {
 export function writeStoredTechs(storageKey, techList) {
   if (typeof window === "undefined") return;
 
-  const raw = JSON.stringify(techList);
+  const raw = JSON.stringify(normalizeTechnologies(techList));
   localStorage.setItem(storageKey, raw);
 
   if (storageKey === GUEST_STORAGE_KEY) {
@@ -65,8 +124,8 @@ export function writeStoredTechs(storageKey, techList) {
   }
 }
 
-export function mergeStudyEntries(entries) {
-  const nextTechs = cloneTechnologies();
+export function mergeStudyEntries(entries, cachedTechs = []) {
+  const nextTechs = normalizeTechnologies(cachedTechs).length ? normalizeTechnologies(cachedTechs) : cloneTechnologies();
   const techMap = new Map(nextTechs.map((tech) => [tech.name, tech]));
 
   for (const entry of entries || []) {
@@ -77,8 +136,9 @@ export function mergeStudyEntries(entries) {
 
     let tech = techMap.get(technologyName);
     if (!tech) {
-      tech = {
+      tech = normalizeTechnology({
         name: technologyName,
+        image: null,
         progress: 0,
         lessons: 0,
         aiSessions: 0,
@@ -86,7 +146,7 @@ export function mergeStudyEntries(entries) {
         nextFocus: "Revisar suas anotacoes remotas",
         note: "Esta tecnologia foi criada a partir dos seus dados salvos na nuvem.",
         contents: [],
-      };
+      }, nextTechs.length);
       nextTechs.push(tech);
       techMap.set(technologyName, tech);
     }
@@ -117,11 +177,12 @@ export function mergeStudyEntries(entries) {
       };
     } else {
       tech.contents.unshift(mergedLesson);
-      tech.lessons = tech.contents.length;
     }
+
+    tech.lessons = tech.contents.length;
   }
 
-  return nextTechs;
+  return normalizeTechnologies(nextTechs);
 }
 
 export function createStudyEntryPayload(userId, technologyName, lesson) {
@@ -143,7 +204,7 @@ export function extractModifiedLessons(techList) {
 
   for (const tech of technologies) {
     for (const lesson of tech.contents || []) {
-      baselineIndex.set(`${tech.name}:${lesson.id}`, lessonSnapshot(lesson));
+      baselineIndex.set(`${tech.id || tech.name}:${lesson.id}`, lessonSnapshot(lesson));
     }
   }
 
@@ -151,7 +212,7 @@ export function extractModifiedLessons(techList) {
 
   for (const tech of techList || []) {
     for (const lesson of tech.contents || []) {
-      const key = `${tech.name}:${lesson.id}`;
+      const key = `${tech.id || tech.name}:${lesson.id}`;
       const baseline = baselineIndex.get(key);
       const current = lessonSnapshot(lesson);
 

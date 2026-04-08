@@ -284,10 +284,11 @@ button {
 }
 
 .technology-spotlight {
-  padding: 1.55rem;
+  padding: 1.7rem;
 }
 
 .tech-card {
+  position: relative;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 1.55rem;
   background:
@@ -308,6 +309,28 @@ button {
     linear-gradient(180deg, rgba(93, 169, 255, 0.15), rgba(255, 255, 255, 0.03)),
     rgba(255, 255, 255, 0.03);
   box-shadow: 0 0 40px rgba(93, 169, 255, 0.12);
+}
+
+.tech-library-card {
+  min-height: 10.75rem;
+  padding: 1.15rem;
+}
+
+.tech-library-card::before {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(93, 169, 255, 0.14), transparent 34%),
+    linear-gradient(180deg, transparent, rgba(3, 10, 18, 0.12));
+  opacity: 0;
+  transition: opacity 180ms ease;
+  content: "";
+}
+
+.tech-library-card:hover::before,
+.tech-library-card:focus-within::before,
+.tech-card-active::before {
+  opacity: 1;
 }
 
 .mode-chip {
@@ -442,4 +465,23 @@ button {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(93, 169, 255, 0.3);
+}
+
+.technology-zoom-slider::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  background: #5da9ff;
+  box-shadow: 0 0 0 6px rgba(93, 169, 255, 0.16);
+  -webkit-appearance: none;
+}
+
+.technology-zoom-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  background: #5da9ff;
+  box-shadow: 0 0 0 6px rgba(93, 169, 255, 0.16);
 }

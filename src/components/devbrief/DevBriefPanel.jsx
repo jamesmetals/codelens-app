@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import CodeInput from "./CodeInput";
 import ModeSelector from "./ModeSelector";
 import AnalysisResult from "./AnalysisResult";
@@ -6,18 +6,11 @@ import CodeComparison from "./CodeComparison";
 import { X, Sparkles, Loader2 } from "lucide-react";
 
 export default function DevBriefPanel({ isOpen, onClose, initialCode }) {
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(initialCode || "");
   const [language, setLanguage] = useState("javascript");
   const [mode, setMode] = useState("review");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
-  
-  // Sync context code when panel opens
-  useEffect(() => {
-    if (isOpen && initialCode) {
-      setCode(initialCode);
-    }
-  }, [isOpen, initialCode]);
 
   // Mock function to simulate API call
   const handleAnalyze = () => {
