@@ -2,6 +2,9 @@ import { technologies } from "./utils/mockData";
 
 const GUEST_STORAGE_KEY = "codenlens_techs_guest";
 const LEGACY_GUEST_STORAGE_KEY = "codenlens_techs";
+const GUEST_DIRTY_FLAG = "codenlens_guest_dirty";
+const TECHNOLOGY_META_LESSON_ID = 0;
+const TECHNOLOGY_META_TITLE = "__technology_meta__";
 
 function cloneValue(value) {
   return JSON.parse(JSON.stringify(value));
@@ -26,6 +29,10 @@ function slugify(value) {
 
 function getMetadataStorageKey(storageKey) {
   return `${storageKey}__meta`;
+}
+
+function isGuestStorageKey(storageKey) {
+  return !storageKey || storageKey === GUEST_STORAGE_KEY || storageKey === LEGACY_GUEST_STORAGE_KEY;
 }
 
 function getTechnologyTemplate(technology) {
@@ -85,11 +92,14 @@ function readMetaFromKey(storageKey) {
 }
 
 function readTechnologyMeta(storageKey) {
-  return {
-    ...readMetaFromKey(LEGACY_GUEST_STORAGE_KEY),
-    ...readMetaFromKey(GUEST_STORAGE_KEY),
-    ...readMetaFromKey(storageKey),
-  };
+  if (isGuestStorageKey(storageKey)) {
+    return {
+      ...readMetaFromKey(LEGACY_GUEST_STORAGE_KEY),
+      ...readMetaFromKey(GUEST_STORAGE_KEY),
+    };
+  }
+
+  return readMetaFromKey(storageKey);
 }
 
 function applyTechnologyMeta(techList, metaMap) {
@@ -120,6 +130,52 @@ function buildTechnologyMeta(techList) {
 
     return accumulator;
   }, {});
+}
+
+function normalizeRemoteTechnologyRecord(record) {
+  const id = String(record?.technology_id || record?.id || "").trim();
+  if (!id) return null;
+
+  return {
+    id,
+    name: String(record?.name || "").trim(),
+    category: String(record?.category || "").trim(),
+    categoryAccent: String(record?.category_accent || record?.categoryAccent || "").trim(),
+    image: normalizeTechnologyImage(record?.image),
+    position: Number(record?.position),
+    createdAt: record?.created_at || null,
+    updatedAt: record?.updated_at || null,
+  };
+}
+
+function isTechnologyMetaEntry(entry) {
+  return Number(entry?.lesson_id) === TECHNOLOGY_META_LESSON_ID
+    && String(entry?.title || "").trim() === TECHNOLOGY_META_TITLE;
+}
+
+function parseTechnologyMetaEntry(entry) {
+  if (!isTechnologyMetaEntry(entry)) return null;
+
+  try {
+    const parsed = JSON.parse(String(entry?.full_code || "{}"));
+    return normalizeRemoteTechnologyRecord({
+      id: parsed?.id,
+      name: parsed?.name || entry?.technology_name,
+      category: parsed?.category,
+      categoryAccent: parsed?.categoryAccent,
+      image: parsed?.image,
+      position: parsed?.position,
+      created_at: entry?.created_at,
+      updated_at: entry?.updated_at,
+    });
+  } catch {
+    return normalizeRemoteTechnologyRecord({
+      id: slugify(entry?.technology_name) || entry?.technology_name,
+      name: entry?.technology_name,
+      created_at: entry?.created_at,
+      updated_at: entry?.updated_at,
+    });
+  }
 }
 
 function normalizeTechnology(technology, index = 0) {
@@ -180,8 +236,80 @@ export function cloneTechnologies() {
   return normalizeTechnologies(technologies);
 }
 
+export function mergeRemoteTechnologies(records, cachedTechs = []) {
+  const baseTechs = normalizeTechnologies(cachedTechs).length
+    ? normalizeTechnologies(cachedTechs)
+    : cloneTechnologies();
+
+  const result = [...baseTechs];
+  const byId = new Map(result.map((technology, index) => [technology.id, index]));
+
+  const normalizedRecords = normalizeArray(records)
+    .map((record) => normalizeRemoteTechnologyRecord(record))
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftPosition = Number.isFinite(left.position) ? left.position : Number.MAX_SAFE_INTEGER;
+      const rightPosition = Number.isFinite(right.position) ? right.position : Number.MAX_SAFE_INTEGER;
+      if (leftPosition !== rightPosition) return leftPosition - rightPosition;
+      return String(left.name || left.id).localeCompare(String(right.name || right.id));
+    });
+
+  for (const record of normalizedRecords) {
+    const currentIndex = byId.get(record.id);
+    const currentTechnology = currentIndex >= 0 ? result[currentIndex] : null;
+
+    const nextTechnology = normalizeTechnology({
+      ...currentTechnology,
+      id: record.id,
+      name: record.name || currentTechnology?.name,
+      category: record.category || currentTechnology?.category,
+      categoryAccent: record.categoryAccent || currentTechnology?.categoryAccent,
+      image: record.image || currentTechnology?.image,
+      contents: currentTechnology?.contents || [],
+    }, currentIndex >= 0 ? currentIndex : result.length);
+
+    if (currentIndex >= 0) {
+      result[currentIndex] = nextTechnology;
+    } else {
+      byId.set(record.id, result.length);
+      result.push(nextTechnology);
+    }
+  }
+
+  return normalizeTechnologies(result);
+}
+
+export function extractTechnologyMetadataEntries(entries) {
+  return normalizeArray(entries)
+    .map((entry) => parseTechnologyMetaEntry(entry))
+    .filter(Boolean);
+}
+
 export function getStorageKey(userId) {
   return userId ? `codenlens_techs_${userId}` : GUEST_STORAGE_KEY;
+}
+
+export function createTechnologyMetadataPayload(userId, technology, position = 0) {
+  const normalizedTechnology = normalizeTechnology(technology, position);
+
+  return {
+    user_id: userId,
+    technology_name: normalizedTechnology.name,
+    lesson_id: TECHNOLOGY_META_LESSON_ID,
+    title: TECHNOLOGY_META_TITLE,
+    summary: normalizedTechnology.category || "Minhas tecnologias",
+    full_code: JSON.stringify({
+      id: normalizedTechnology.id,
+      name: normalizedTechnology.name,
+      category: normalizedTechnology.category || "Minhas tecnologias",
+      categoryAccent: normalizedTechnology.categoryAccent || "Conteudos organizados",
+      image: normalizeTechnologyImage(normalizedTechnology.image),
+      position,
+    }),
+    study_notes: [],
+    highlights: [],
+    updated_at: new Date().toISOString(),
+  };
 }
 
 export function createTechnologyId(name) {
@@ -191,6 +319,20 @@ export function createTechnologyId(name) {
     : Math.random().toString(36).slice(2, 10);
 
   return `${base}-${suffix}`;
+}
+
+function hasTechnologyMetadataChanges(technology, index = 0) {
+  const normalizedTechnology = normalizeTechnology(technology, index);
+  const template = getTechnologyTemplate(normalizedTechnology);
+  if (!template) return true;
+
+  const normalizedTemplate = normalizeTechnology(template, index);
+
+  return normalizedTechnology.name !== normalizedTemplate.name
+    || normalizedTechnology.category !== normalizedTemplate.category
+    || normalizedTechnology.categoryAccent !== normalizedTemplate.categoryAccent
+    || JSON.stringify(normalizeTechnologyImage(normalizedTechnology.image))
+      !== JSON.stringify(normalizeTechnologyImage(normalizedTemplate.image));
 }
 
 export function getDisplayName(authUser) {
@@ -219,6 +361,19 @@ export function readStoredTechs(storageKey) {
   }
 }
 
+export function hasGuestDraftData() {
+  if (typeof window === "undefined") return false;
+  if (localStorage.getItem(GUEST_DIRTY_FLAG) !== "1") return false;
+
+  const guestTechs = readStoredTechs(GUEST_STORAGE_KEY);
+  if (extractModifiedLessons(guestTechs).length > 0) return true;
+
+  const defaultTechs = cloneTechnologies();
+  if (guestTechs.length !== defaultTechs.length) return true;
+
+  return guestTechs.some((technology, index) => hasTechnologyMetadataChanges(technology, index));
+}
+
 export function writeStoredTechs(storageKey, techList) {
   if (typeof window === "undefined") return;
 
@@ -228,11 +383,27 @@ export function writeStoredTechs(storageKey, techList) {
 
   localStorage.setItem(storageKey, raw);
   localStorage.setItem(getMetadataStorageKey(storageKey), metadataRaw);
-  localStorage.setItem(getMetadataStorageKey(GUEST_STORAGE_KEY), metadataRaw);
-  localStorage.setItem(getMetadataStorageKey(LEGACY_GUEST_STORAGE_KEY), metadataRaw);
 
-  if (storageKey === GUEST_STORAGE_KEY) {
+  if (isGuestStorageKey(storageKey)) {
+    localStorage.setItem(GUEST_DIRTY_FLAG, "1");
+    localStorage.setItem(getMetadataStorageKey(GUEST_STORAGE_KEY), metadataRaw);
     localStorage.setItem(LEGACY_GUEST_STORAGE_KEY, raw);
+    localStorage.setItem(getMetadataStorageKey(LEGACY_GUEST_STORAGE_KEY), metadataRaw);
+  }
+}
+
+export function clearStoredTechs(storageKey) {
+  if (typeof window === "undefined") return;
+
+  localStorage.removeItem(storageKey);
+  localStorage.removeItem(getMetadataStorageKey(storageKey));
+
+  if (isGuestStorageKey(storageKey)) {
+    localStorage.removeItem(GUEST_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_GUEST_STORAGE_KEY);
+    localStorage.removeItem(getMetadataStorageKey(GUEST_STORAGE_KEY));
+    localStorage.removeItem(getMetadataStorageKey(LEGACY_GUEST_STORAGE_KEY));
+    localStorage.removeItem(GUEST_DIRTY_FLAG);
   }
 }
 
@@ -241,6 +412,8 @@ export function mergeStudyEntries(entries, cachedTechs = []) {
   const techMap = new Map(nextTechs.map((tech) => [tech.name, tech]));
 
   for (const entry of entries || []) {
+    if (isTechnologyMetaEntry(entry)) continue;
+
     const technologyName = String(entry?.technology_name || "").trim();
     const lessonId = Number(entry?.lesson_id);
 

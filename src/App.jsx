@@ -2,13 +2,23 @@ import { useEffect, useState } from "react";
 import anime from "animejs";
 
 import { technologies } from "./utils/mockData";
-import { getAuthRedirectUrl, supabase, supabaseConfigured, supabaseStudyEntriesTable } from "./supabase";
 import {
+  getAuthRedirectUrl,
+  supabase,
+  supabaseConfigured,
+  supabaseStudyEntriesTable,
+} from "./supabase";
+import {
+  clearStoredTechs,
+  createTechnologyMetadataPayload,
   createTechnologyId,
   createStudyEntryPayload,
+  extractTechnologyMetadataEntries,
   extractModifiedLessons,
   getFriendlySyncError,
   getStorageKey,
+  hasGuestDraftData,
+  mergeRemoteTechnologies,
   mergeStudyEntries,
   readStoredTechs,
   writeStoredTechs,
@@ -84,31 +94,40 @@ function App() {
     setTechnologyModal((current) => ({ ...current, open: false }));
   };
 
-  const migrateGuestStudyToCloud = async (user) => {
-    if (!user?.id || typeof window === "undefined") return;
+  const syncRemoteTechnologies = async (userId, nextTechs) => {
+    if (!supabaseConfigured || !supabase || !userId) return;
 
-    const migrationKey = `codenlens_guest_migrated_${user.id}`;
-    if (localStorage.getItem(migrationKey) === "done") return;
-
-    const guestTechs = readStoredTechs(getStorageKey());
-    const modifiedLessons = extractModifiedLessons(guestTechs);
-
-    if (!modifiedLessons.length) {
-      localStorage.setItem(migrationKey, "done");
-      return;
-    }
-
-    const payload = modifiedLessons.map(({ technologyName, lesson }) =>
-      createStudyEntryPayload(user.id, technologyName, lesson),
-    );
-
+    const payload = nextTechs.map((technology, index) => createTechnologyMetadataPayload(userId, technology, index));
     const { error } = await supabase
       .from(supabaseStudyEntriesTable)
       .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" });
 
     if (error) throw error;
+  };
 
-    localStorage.setItem(migrationKey, "done");
+  const migrateGuestStudyToCloud = async (user) => {
+    if (!user?.id || typeof window === "undefined") return false;
+    if (!hasGuestDraftData()) return false;
+
+    const guestTechs = readStoredTechs(getStorageKey());
+    const modifiedLessons = extractModifiedLessons(guestTechs);
+
+    await syncRemoteTechnologies(user.id, guestTechs);
+
+    if (modifiedLessons.length) {
+      const payload = modifiedLessons.map(({ technologyName, lesson }) =>
+        createStudyEntryPayload(user.id, technologyName, lesson),
+      );
+
+      const { error } = await supabase
+        .from(supabaseStudyEntriesTable)
+        .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" });
+
+      if (error) throw error;
+    }
+
+    clearStoredTechs(getStorageKey());
+    return true;
   };
 
   const syncRemoteStudy = async (user, options = {}) => {
@@ -121,19 +140,38 @@ function App() {
     setSyncNotice("Carregando seus blocos salvos...");
 
     try {
-      if (migrateGuest) {
-        await migrateGuestStudyToCloud(user);
-      }
-
-      const { data, error } = await supabase
+      const cachedUserTechs = readStoredTechs(getStorageKey(user.id));
+      let remoteEntries = [];
+      let { data, error } = await supabase
         .from(supabaseStudyEntriesTable)
         .select("*")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
+      remoteEntries = data || [];
 
-      const merged = mergeStudyEntries(data || [], readStoredTechs(getStorageKey(user.id)));
+      if (migrateGuest && remoteEntries.length === 0 && hasGuestDraftData()) {
+        setSyncNotice("Migrando seus dados locais para a conta Google...");
+        const migrated = await migrateGuestStudyToCloud(user);
+
+        if (migrated) {
+          ({ data, error } = await supabase
+            .from(supabaseStudyEntriesTable)
+            .select("*")
+            .eq("user_id", user.id)
+            .order("updated_at", { ascending: false }));
+
+          if (error) throw error;
+          remoteEntries = data || [];
+        }
+      }
+
+      const mergedBase = mergeRemoteTechnologies(
+        extractTechnologyMetadataEntries(remoteEntries || []),
+        cachedUserTechs,
+      );
+      const merged = mergeStudyEntries(remoteEntries || [], mergedBase);
       applyTechList(merged);
       writeStoredTechs(getStorageKey(user.id), merged);
       setSyncNotice("Conteudo sincronizado com sua conta Google.");
@@ -228,9 +266,19 @@ function App() {
           : tech
       ));
 
+      if (supabaseConfigured && supabase && authUser?.id) {
+        try {
+          await syncRemoteTechnologies(authUser.id, nextTechList);
+          setLastSyncedAt(new Date().toISOString());
+          setAuthError("");
+        } catch (error) {
+          return { ok: false, error: getFriendlySyncError(error) };
+        }
+      }
+
       applyTechList(nextTechList);
       setSyncNotice(
-        previousTechnology.name !== nextName && authUser
+        authUser
           ? "Tecnologia atualizada e alinhada com sua conta Google."
           : "Tecnologia atualizada neste dispositivo.",
       );
@@ -253,9 +301,25 @@ function App() {
       contents: [],
     };
 
-    applyTechList([nextTechnology, ...techList]);
+    const nextTechList = [nextTechnology, ...techList];
+
+    if (supabaseConfigured && supabase && authUser?.id) {
+      try {
+        await syncRemoteTechnologies(authUser.id, nextTechList);
+        setLastSyncedAt(new Date().toISOString());
+        setAuthError("");
+      } catch (error) {
+        return { ok: false, error: getFriendlySyncError(error) };
+      }
+    }
+
+    applyTechList(nextTechList);
     setActiveTechnology(nextTechnology);
-    setSyncNotice("Tecnologia adicionada neste dispositivo.");
+    setSyncNotice(
+      authUser
+        ? "Tecnologia adicionada e sincronizada com sua conta Google."
+        : "Tecnologia adicionada neste dispositivo.",
+    );
     return { ok: true };
   };
 
@@ -287,6 +351,7 @@ function App() {
       setAuthUser(nextUser);
 
       if (nextUser) {
+        loadLocalTechList(nextUser.id);
         await syncRemoteStudy(nextUser, { migrateGuest: true });
       } else {
         loadLocalTechList();
@@ -304,11 +369,15 @@ function App() {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!active) return;
 
+      setAuthChecked(false);
       const nextUser = session?.user || null;
       setAuthUser(nextUser);
       setShowAccountPanel(false);
+      setActiveLesson(null);
+      setCurrentView("home");
 
       if (nextUser) {
+        loadLocalTechList(nextUser.id);
         await syncRemoteStudy(nextUser, { migrateGuest: true });
       } else {
         loadLocalTechList();
@@ -404,6 +473,8 @@ function App() {
       setAuthError(getFriendlySyncError(error));
     } finally {
       setAuthUser(null);
+      setActiveLesson(null);
+      setCurrentView("home");
       loadLocalTechList();
       setLastSyncedAt("");
       setSyncNotice("Sessao encerrada. O app segue funcionando com cache local neste navegador.");
