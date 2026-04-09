@@ -22,7 +22,7 @@ import AccountPanel from "./components/auth/AccountPanel";
 
 function App() {
   const [authUser, setAuthUser] = useState(null);
-  const [, setAuthChecked] = useState(!supabaseConfigured);
+  const [authChecked, setAuthChecked] = useState(!supabaseConfigured);
   const [, setAuthError] = useState("");
   const [syncNotice, setSyncNotice] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState("");
@@ -147,8 +147,9 @@ function App() {
   };
 
   useEffect(() => {
+    if (!authChecked) return;
     writeStoredTechs(storageKey, techList);
-  }, [storageKey, techList]);
+  }, [authChecked, storageKey, techList]);
 
   useEffect(() => {
     if (activeTechnology) {
