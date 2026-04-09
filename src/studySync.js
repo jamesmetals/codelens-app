@@ -63,18 +63,23 @@ function normalizeTechnologyMetaMap(value) {
   }, {});
 }
 
-function readTechnologyMeta(storageKey) {
+function readMetaFromKey(storageKey) {
   if (typeof window === "undefined") return {};
 
   try {
-    const raw = localStorage.getItem(getMetadataStorageKey(storageKey))
-      || (storageKey === GUEST_STORAGE_KEY ? localStorage.getItem(getMetadataStorageKey(LEGACY_GUEST_STORAGE_KEY)) : "");
-
-    if (!raw) return {};
-    return normalizeTechnologyMetaMap(JSON.parse(raw));
+    const raw = localStorage.getItem(getMetadataStorageKey(storageKey));
+    return raw ? normalizeTechnologyMetaMap(JSON.parse(raw)) : {};
   } catch {
     return {};
   }
+}
+
+function readTechnologyMeta(storageKey) {
+  return {
+    ...readMetaFromKey(LEGACY_GUEST_STORAGE_KEY),
+    ...readMetaFromKey(GUEST_STORAGE_KEY),
+    ...readMetaFromKey(storageKey),
+  };
 }
 
 function applyTechnologyMeta(techList, metaMap) {
@@ -188,12 +193,14 @@ export function writeStoredTechs(storageKey, techList) {
 
   const normalized = normalizeTechnologies(techList);
   const raw = JSON.stringify(normalized);
+  const metadataRaw = JSON.stringify(buildTechnologyMeta(normalized));
   localStorage.setItem(storageKey, raw);
-  localStorage.setItem(getMetadataStorageKey(storageKey), JSON.stringify(buildTechnologyMeta(normalized)));
+  localStorage.setItem(getMetadataStorageKey(storageKey), metadataRaw);
+  localStorage.setItem(getMetadataStorageKey(GUEST_STORAGE_KEY), metadataRaw);
+  localStorage.setItem(getMetadataStorageKey(LEGACY_GUEST_STORAGE_KEY), metadataRaw);
 
   if (storageKey === GUEST_STORAGE_KEY) {
     localStorage.setItem(LEGACY_GUEST_STORAGE_KEY, raw);
-    localStorage.setItem(getMetadataStorageKey(LEGACY_GUEST_STORAGE_KEY), JSON.stringify(buildTechnologyMeta(normalized)));
   }
 }
 
