@@ -267,24 +267,28 @@ export default function TechnologyModal({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        if (isCropOpen) {
-          setIsCropOpen(false);
-          return;
-        }
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen, technology]);
 
-        onClose();
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+
+      if (isCropOpen) {
+        setIsCropOpen(false);
+        return;
       }
+
+      onClose();
     };
 
     window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, technology, onClose, isCropOpen]);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isCropOpen, onClose]);
 
   if (!isOpen) {
     return null;
@@ -480,19 +484,27 @@ export default function TechnologyModal({
                     <button
                       type="button"
                       onClick={() => setIsCropOpen(true)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/8 bg-white/[0.03] text-slate-300 transition-colors hover:border-sky-300/25 hover:text-sky-100"
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-white/8 bg-white/[0.03] px-3 text-slate-300 transition-colors hover:border-sky-300/25 hover:text-sky-100"
                       aria-label="Editar imagem"
+                      title="Editar imagem"
                     >
                       <Crop className="h-4 w-4" />
+                      <span className="text-xs font-semibold">Editar</span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => setImageDraft(null)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/8 bg-white/[0.03] text-slate-400 transition-colors hover:border-rose-300/25 hover:text-rose-200"
-                      aria-label="Remover imagem"
+                      onClick={() => {
+                        setImageDraft(null);
+                        setUrlInput("");
+                        setIsCropOpen(false);
+                      }}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-white/8 bg-white/[0.03] px-3 text-slate-400 transition-colors hover:border-rose-300/25 hover:text-rose-200"
+                      aria-label="Excluir imagem"
+                      title="Excluir imagem"
                     >
                       <Trash2 className="h-4 w-4" />
+                      <span className="text-xs font-semibold">Excluir</span>
                     </button>
                   </div>
                 </div>
