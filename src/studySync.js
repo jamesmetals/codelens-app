@@ -24,6 +24,10 @@ function slugify(value) {
     .toLowerCase();
 }
 
+function getMetadataStorageKey(storageKey) {
+  return `${storageKey}__meta`;
+}
+
 function normalizeTechnologyImage(image) {
   if (!image?.src) return null;
 
@@ -39,6 +43,68 @@ function normalizeTechnologyImage(image) {
     offsetX: Number.isFinite(offsetX) ? clamp(offsetX, -1, 1) : 0,
     offsetY: Number.isFinite(offsetY) ? clamp(offsetY, -1, 1) : 0,
   };
+}
+
+function normalizeTechnologyMetaMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  return Object.entries(value).reduce((accumulator, [key, meta]) => {
+    const id = String(key || "").trim();
+    if (!id) return accumulator;
+
+    accumulator[id] = {
+      name: String(meta?.name || "").trim() || undefined,
+      category: String(meta?.category || "").trim() || undefined,
+      categoryAccent: String(meta?.categoryAccent || "").trim() || undefined,
+      image: normalizeTechnologyImage(meta?.image),
+    };
+
+    return accumulator;
+  }, {});
+}
+
+function readTechnologyMeta(storageKey) {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = localStorage.getItem(getMetadataStorageKey(storageKey))
+      || (storageKey === GUEST_STORAGE_KEY ? localStorage.getItem(getMetadataStorageKey(LEGACY_GUEST_STORAGE_KEY)) : "");
+
+    if (!raw) return {};
+    return normalizeTechnologyMetaMap(JSON.parse(raw));
+  } catch {
+    return {};
+  }
+}
+
+function applyTechnologyMeta(techList, metaMap) {
+  const normalizedMeta = normalizeTechnologyMetaMap(metaMap);
+
+  return normalizeTechnologies(techList).map((technology) => {
+    const metadata = normalizedMeta[technology.id];
+    if (!metadata) return technology;
+
+    return {
+      ...technology,
+      name: metadata.name || technology.name,
+      category: metadata.category || technology.category,
+      categoryAccent: metadata.categoryAccent || technology.categoryAccent,
+      image: metadata.image || technology.image,
+    };
+  });
+}
+
+function buildTechnologyMeta(techList) {
+  return normalizeTechnologies(techList).reduce((accumulator, technology) => {
+    accumulator[technology.id] = {
+      name: technology.name,
+      category: technology.category,
+      categoryAccent: technology.categoryAccent,
+      image: normalizeTechnologyImage(technology.image),
+    };
+
+    return accumulator;
+  }, {});
 }
 
 function normalizeTechnology(technology, index = 0) {
@@ -100,7 +166,7 @@ export function getDisplayName(authUser) {
 }
 
 export function readStoredTechs(storageKey) {
-  const fallback = cloneTechnologies();
+  const fallback = applyTechnologyMeta(cloneTechnologies(), readTechnologyMeta(storageKey));
   if (typeof window === "undefined") return fallback;
 
   try {
@@ -110,7 +176,7 @@ export function readStoredTechs(storageKey) {
     if (!raw) return fallback;
 
     const parsed = JSON.parse(raw);
-    const normalized = normalizeTechnologies(parsed);
+    const normalized = applyTechnologyMeta(normalizeTechnologies(parsed), readTechnologyMeta(storageKey));
     return normalized.length ? normalized : fallback;
   } catch {
     return fallback;
@@ -120,11 +186,14 @@ export function readStoredTechs(storageKey) {
 export function writeStoredTechs(storageKey, techList) {
   if (typeof window === "undefined") return;
 
-  const raw = JSON.stringify(normalizeTechnologies(techList));
+  const normalized = normalizeTechnologies(techList);
+  const raw = JSON.stringify(normalized);
   localStorage.setItem(storageKey, raw);
+  localStorage.setItem(getMetadataStorageKey(storageKey), JSON.stringify(buildTechnologyMeta(normalized)));
 
   if (storageKey === GUEST_STORAGE_KEY) {
     localStorage.setItem(LEGACY_GUEST_STORAGE_KEY, raw);
+    localStorage.setItem(getMetadataStorageKey(LEGACY_GUEST_STORAGE_KEY), JSON.stringify(buildTechnologyMeta(normalized)));
   }
 }
 
