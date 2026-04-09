@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -188,8 +188,7 @@ button {
 }
 
 .primary-cta:hover,
-.secondary-cta:hover,
-.tech-card:hover {
+.secondary-cta:hover {
   transform: translateY(-2px);
 }
 
@@ -284,17 +283,17 @@ button {
 }
 
 .technology-spotlight {
-  padding: 1.7rem;
+  padding: 1.1rem;
 }
 
 .tech-card {
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1.55rem;
+  border-radius: 1.1rem;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
     rgba(255, 255, 255, 0.018);
-  padding: 1rem;
+  padding: 0.875rem;
   text-align: left;
   transition:
     transform 180ms ease,
@@ -312,8 +311,8 @@ button {
 }
 
 .tech-library-card {
-  min-height: 10.75rem;
-  padding: 1.15rem;
+  min-height: 8.75rem;
+  padding: 0.875rem;
 }
 
 .tech-library-card::before {
@@ -484,4 +483,30 @@ button {
   border-radius: 999px;
   background: #5da9ff;
   box-shadow: 0 0 0 6px rgba(93, 169, 255, 0.16);
+}
+
+.dashboard-track {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.dashboard-track::-webkit-scrollbar {
+  display: none;
+}
+
+.dashboard-nav-arrow {
+  background: rgba(15, 25, 48, 0.7);
+  backdrop-filter: blur(4px);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s ease,
+    opacity 0.2s ease;
+}
+
+.dashboard-nav-arrow:hover {
+  background: rgba(105, 218, 255, 0.2);
+  color: #69daff;
+  box-shadow: 0 0 15px rgba(105, 218, 255, 0.4);
 }

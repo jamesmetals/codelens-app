@@ -1,125 +1,155 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Bold, Italic, Underline, Code, AlignLeft, AlignCenter, AlignRight,
-  List, Plus, Strikethrough, Pencil, Trash2, Check, X, PaintBucket
-} from 'lucide-react';
+  Bold,
+  Check,
+  Code,
+  Italic,
+  List,
+  PaintBucket,
+  Plus,
+  Strikethrough,
+  Trash2,
+  Underline,
+  X,
+} from "lucide-react";
 
-// Paleta de cores LED (para anotações - não editável pelo usuário)
 const LED_COLORS = [
-  { name: 'rose',    bg: 'bg-rose-500',    text: 'text-rose-300',    border: 'border-rose-500/60',    bgSoft: 'bg-rose-500/20',    hex: '#fb7185' },
-  { name: 'emerald', bg: 'bg-emerald-500', text: 'text-emerald-300', border: 'border-emerald-500/60', bgSoft: 'bg-emerald-500/20', hex: '#34d399' },
-  { name: 'sky',     bg: 'bg-sky-500',     text: 'text-sky-300',     border: 'border-sky-500/60',     bgSoft: 'bg-sky-500/20',     hex: '#38bdf8' },
-  { name: 'amber',   bg: 'bg-amber-500',   text: 'text-amber-300',   border: 'border-amber-500/60',   bgSoft: 'bg-amber-500/20',   hex: '#fbbf24' },
-  { name: 'violet',  bg: 'bg-violet-500',  text: 'text-violet-300',  border: 'border-violet-500/60',  bgSoft: 'bg-violet-500/20',  hex: '#a78bfa' },
+  { name: "rose", bg: "bg-rose-500", text: "text-rose-300", border: "border-rose-500/60", hex: "#fb7185" },
+  { name: "emerald", bg: "bg-emerald-500", text: "text-emerald-300", border: "border-emerald-500/60", hex: "#34d399" },
+  { name: "sky", bg: "bg-sky-500", text: "text-sky-300", border: "border-sky-500/60", hex: "#38bdf8" },
+  { name: "amber", bg: "bg-amber-500", text: "text-amber-300", border: "border-amber-500/60", hex: "#fbbf24" },
+  { name: "violet", bg: "bg-violet-500", text: "text-violet-300", border: "border-violet-500/60", hex: "#a78bfa" },
 ];
 
-// Paleta de cores de texto (editável pelo usuário)
 const DEFAULT_TEXT_PALETTE = [
-  { id: 'padrao',  name: 'Padrão',  hex: '#f1f5f9' },
-  { id: 'perigo',  name: 'Perigo',  hex: '#ef4444' },
-  { id: 'sucesso', name: 'Sucesso', hex: '#22c55e' },
-  { id: 'info',    name: 'Info',    hex: '#3b82f6' },
+  { id: "padrao", name: "Padrao", hex: "#f1f5f9" },
+  { id: "perigo", name: "Perigo", hex: "#ef4444" },
+  { id: "sucesso", name: "Sucesso", hex: "#22c55e" },
+  { id: "info", name: "Info", hex: "#3b82f6" },
 ];
 
 const FONT_FAMILIES = [
-  { label: 'Fira Code',    value: '"Fira Code", monospace' },
-  { label: 'JetBrains',    value: '"JetBrains Mono", monospace' },
-  { label: 'Monospace',    value: 'monospace' },
-  { label: 'Inter',        value: '"Inter", sans-serif' },
+  { label: "Fira Code", value: "\"Fira Code\", monospace" },
+  { label: "JetBrains", value: "\"JetBrains Mono\", monospace" },
+  { label: "Monospace", value: "monospace" },
+  { label: "Inter", value: "\"Inter\", sans-serif" },
 ];
 
 const MIN_SIZE = 11;
 const MAX_SIZE = 28;
+const STORAGE_KEY = "codenlens_text_palette";
 
 function loadPalette() {
   try {
-    const saved = localStorage.getItem('codenlens_text_palette');
+    const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : DEFAULT_TEXT_PALETTE;
-  } catch { return DEFAULT_TEXT_PALETTE; }
+  } catch {
+    return DEFAULT_TEXT_PALETTE;
+  }
 }
 
-function savePalette(p) {
-  localStorage.setItem('codenlens_text_palette', JSON.stringify(p));
+function savePalette(palette) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(palette));
 }
 
-// ─── Sub-componentes ─────────────────────────────────────────────────────────
-
-function ToolBtn({ icon, onClick, title, active }) {
+function ToolBtn({ active = false, icon, onClick, title }) {
   return (
     <button
-      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+      type="button"
+      onMouseDown={(event) => {
+        event.preventDefault();
+        onClick();
+      }}
       title={title}
-      className={`p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors ${active ? 'bg-white/10 text-white' : ''}`}
+      className={`rounded-md border border-transparent px-2 py-2 text-[#a3aac4] transition-all hover:border-[#40485d]/30 hover:bg-[#141f38] hover:text-white ${
+        active ? "border-[#69daff]/30 bg-[#141f38] text-white" : ""
+      }`}
     >
       {icon}
     </button>
   );
 }
 
-function Sep() { return <div className="w-px h-4 bg-white/10 mx-1 shrink-0" />; }
+function Sep() {
+  return <div className="mx-1 h-5 w-px shrink-0 bg-[#40485d]/20" />;
+}
 
-// Popup de edição da paleta de cores
-function ColorPaletteEditor({ palette, onChange, onClose }) {
-  const [local, setLocal] = useState(palette);
-  const [newName, setNewName] = useState('');
-  const [newHex, setNewHex] = useState('#ffffff');
+function ColorPaletteEditor({ onChange, onClose, palette }) {
+  const [localPalette, setLocalPalette] = useState(palette);
+  const [newName, setNewName] = useState("");
+  const [newHex, setNewHex] = useState("#ffffff");
 
   const handleAdd = () => {
-    if (!newName.trim() || local.length >= 10) return;
-    const updated = [...local, { id: Date.now().toString(), name: newName.trim().slice(0, 14), hex: newHex }];
-    setLocal(updated);
-    setNewName('');
-    setNewHex('#ffffff');
+    if (!newName.trim() || localPalette.length >= 10) return;
+
+    setLocalPalette((current) => [
+      ...current,
+      { id: String(Date.now()), name: newName.trim().slice(0, 14), hex: newHex },
+    ]);
+    setNewName("");
+    setNewHex("#ffffff");
   };
 
-  const handleRemove = (id) => setLocal(prev => prev.filter(c => c.id !== id));
-
-  const handleNameChange = (id, name) =>
-    setLocal(prev => prev.map(c => c.id === id ? { ...c, name: name.slice(0, 14) } : c));
-
-  const handleHexChange = (id, hex) =>
-    setLocal(prev => prev.map(c => c.id === id ? { ...c, hex } : c));
-
   const handleSave = () => {
-    savePalette(local);
-    onChange(local);
+    savePalette(localPalette);
+    onChange(localPalette);
     onClose();
   };
 
   return (
-    <div className="absolute right-0 top-full mt-2 z-[100] w-72 rounded-xl bg-[#0B1D35] border border-white/10 shadow-2xl shadow-black/60 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+    <div className="absolute right-0 top-full z-[100] mt-2 w-72 overflow-hidden rounded-xl border border-[#40485d]/20 bg-[#0f1930] shadow-2xl shadow-black/60">
+      <div className="flex items-center justify-between border-b border-[#40485d]/20 px-4 py-3">
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Paleta Rápida</p>
-          <p className="text-[10px] text-slate-500">MAX 14 CARACTERES — {local.length}/10 cores</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[#a3aac4]">
+            Paleta rapida
+          </p>
+          <p className="text-[10px] text-[#6d758c]">
+            MAX 14 CARACTERES - {localPalette.length}/10 cores
+          </p>
         </div>
-        <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors">
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[#6d758c] transition-colors hover:text-[#dee5ff]"
+        >
           <X size={14} />
         </button>
       </div>
 
-      {/* Color list */}
-      <div className="max-h-56 overflow-y-auto custom-scrollbar divide-y divide-white/5">
-        {local.map(color => (
+      <div className="custom-scrollbar max-h-56 divide-y divide-[#40485d]/10 overflow-y-auto">
+        {localPalette.map((color) => (
           <div key={color.id} className="flex items-center gap-2 px-3 py-2">
             <input
               type="color"
               value={color.hex}
-              onChange={e => handleHexChange(color.id, e.target.value)}
-              className="w-6 h-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
-              title="Clique para alterar a cor"
+              onChange={(event) => {
+                const nextHex = event.target.value;
+                setLocalPalette((current) => current.map((item) => (
+                  item.id === color.id ? { ...item, hex: nextHex } : item
+                )));
+              }}
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+              title="Escolher cor"
             />
             <input
               type="text"
               value={color.name}
-              onChange={e => handleNameChange(color.id, e.target.value)}
               maxLength={14}
-              className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500/50"
+              onChange={(event) => {
+                const nextName = event.target.value.slice(0, 14);
+                setLocalPalette((current) => current.map((item) => (
+                  item.id === color.id ? { ...item, name: nextName } : item
+                )));
+              }}
+              className="flex-1 rounded border border-[#40485d]/20 bg-[#091328] px-2 py-1 text-xs text-[#dee5ff] focus:border-[#69daff]/40 focus:outline-none"
             />
             <button
-              onClick={() => handleRemove(color.id)}
-              className="text-slate-600 hover:text-rose-400 transition-colors shrink-0"
+              type="button"
+              onClick={() => {
+                setLocalPalette((current) => current.filter((item) => item.id !== color.id));
+              }}
+              className="shrink-0 text-[#6d758c] transition-colors hover:text-rose-300"
+              title="Remover cor"
             >
               <Trash2 size={13} />
             </button>
@@ -127,50 +157,68 @@ function ColorPaletteEditor({ palette, onChange, onClose }) {
         ))}
       </div>
 
-      {/* Add new */}
-      {local.length < 10 && (
-        <div className="flex items-center gap-2 px-3 py-2 border-t border-white/10 bg-white/3">
+      {localPalette.length < 10 ? (
+        <div className="flex items-center gap-2 border-t border-[#40485d]/20 bg-[#091328] px-3 py-2">
           <input
             type="color"
             value={newHex}
-            onChange={e => setNewHex(e.target.value)}
-            className="w-6 h-6 rounded cursor-pointer bg-transparent border-0 p-0 shrink-0"
+            onChange={(event) => setNewHex(event.target.value)}
+            className="h-6 w-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+            title="Escolher cor"
           />
           <input
             type="text"
             value={newName}
-            onChange={e => setNewName(e.target.value.slice(0, 14))}
-            placeholder="Nome da cor..."
             maxLength={14}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-sky-500/50"
+            placeholder="Nome da cor"
+            onChange={(event) => setNewName(event.target.value.slice(0, 14))}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") handleAdd();
+            }}
+            className="flex-1 rounded border border-[#40485d]/20 bg-[#060e20] px-2 py-1 text-xs text-[#dee5ff] placeholder:text-[#6d758c] focus:border-[#69daff]/40 focus:outline-none"
           />
           <button
+            type="button"
             onClick={handleAdd}
             disabled={!newName.trim()}
-            className="text-[10px] text-sky-400 hover:text-sky-300 disabled:opacity-30 disabled:cursor-not-allowed font-semibold whitespace-nowrap"
+            className="whitespace-nowrap text-[10px] font-semibold text-[#69daff] disabled:cursor-not-allowed disabled:opacity-30"
           >
             + Adicionar
           </button>
         </div>
-      )}
+      ) : null}
 
-      {/* Save */}
-      <div className="px-3 py-2 border-t border-white/10 flex justify-end">
+      <div className="flex justify-end border-t border-[#40485d]/20 px-3 py-2">
         <button
+          type="button"
           onClick={handleSave}
-          className="flex items-center gap-1 text-xs bg-sky-500/20 border border-sky-500/40 text-sky-300 px-3 py-1 rounded-lg hover:bg-sky-500/30 transition-colors"
+          className="flex items-center gap-1 rounded-lg border border-[#69daff]/30 bg-[#69daff]/10 px-3 py-1 text-xs text-[#69daff] transition-colors hover:bg-[#69daff]/20"
         >
-          <Check size={11} /> Salvar paleta
+          <Check size={11} />
+          Salvar paleta
         </button>
       </div>
     </div>
   );
 }
 
-// ─── Componente Principal ─────────────────────────────────────────────────────
+function toEditorHtml(text) {
+  if (!text) {
+    return "<div><br></div>";
+  }
 
-export default function DynamicEditor({ initialContent, onAddSelection, onChange, highlightSpanId }) {
+  return text
+    .split("\n")
+    .map((line) => `<div>${line || "<br>"}</div>`)
+    .join("");
+}
+
+export default function DynamicEditor({
+  highlightSpanId,
+  initialContent,
+  onAddSelection,
+  onChange,
+}) {
   const editorRef = useRef(null);
   const savedRangeRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
@@ -180,81 +228,97 @@ export default function DynamicEditor({ initialContent, onAddSelection, onChange
   const [showPaletteEditor, setShowPaletteEditor] = useState(false);
   const [textPalette, setTextPalette] = useState(loadPalette);
 
-  // Popula o editor com o conteúdo inicial (só uma vez)
   useEffect(() => {
-    if (editorRef.current && !editorRef.current.dataset.initialized) {
-      editorRef.current.dataset.initialized = 'true';
-      if (initialContent) {
-        const html = initialContent
-          .split('\n')
-          .map(line => `<div>${line || '<br>'}</div>`)
-          .join('');
-        editorRef.current.innerHTML = html;
-      }
-    }
+    if (!editorRef.current) return;
+    editorRef.current.innerHTML = toEditorHtml(initialContent);
   }, [initialContent]);
 
-  // Efeito: destacar span quando nota é clicada (vem do StudyRoom via prop)
   useEffect(() => {
     if (!highlightSpanId) return;
-    const el = document.getElementById(highlightSpanId);
-    if (!el) return;
 
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const target = document.getElementById(highlightSpanId);
+    if (!target) return;
 
-    // Animação de "pulso" via manipulação inline de style
-    const originalOutline = el.style.outline;
-    const originalBoxShadow = el.style.boxShadow;
-    const originalTransition = el.style.transition;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    el.style.transition = 'outline 0.15s, box-shadow 0.15s';
-    el.style.outline = '2px solid rgba(255,255,255,0.8)';
-    el.style.boxShadow = '0 0 16px rgba(255,255,255,0.4)';
+    const originalOutline = target.style.outline;
+    const originalBoxShadow = target.style.boxShadow;
+    const originalTransition = target.style.transition;
 
-    // Pulsa 3 vezes
+    target.style.transition = "outline 0.15s, box-shadow 0.15s";
+    target.style.outline = "2px solid rgba(255,255,255,0.8)";
+    target.style.boxShadow = "0 0 16px rgba(255,255,255,0.4)";
+
     let count = 0;
-    const pulse = setInterval(() => {
-      count++;
+    const pulse = window.setInterval(() => {
+      count += 1;
+
       if (count % 2 === 0) {
-        el.style.outline = '2px solid rgba(255,255,255,0.8)';
-        el.style.boxShadow = '0 0 16px rgba(255,255,255,0.4)';
+        target.style.outline = "2px solid rgba(255,255,255,0.8)";
+        target.style.boxShadow = "0 0 16px rgba(255,255,255,0.4)";
       } else {
-        el.style.outline = '2px solid rgba(255,255,255,0.2)';
-        el.style.boxShadow = '0 0 4px rgba(255,255,255,0.1)';
+        target.style.outline = "2px solid rgba(255,255,255,0.2)";
+        target.style.boxShadow = "0 0 4px rgba(255,255,255,0.1)";
       }
+
       if (count >= 6) {
         clearInterval(pulse);
-        el.style.outline = originalOutline;
-        el.style.boxShadow = originalBoxShadow;
-        el.style.transition = originalTransition;
+        target.style.outline = originalOutline;
+        target.style.boxShadow = originalBoxShadow;
+        target.style.transition = originalTransition;
       }
     }, 300);
 
     return () => clearInterval(pulse);
   }, [highlightSpanId]);
 
-  const execCmd = (cmd, value = null) => {
-    document.execCommand(cmd, false, value);
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (!event.target.closest("[data-editor-menu]")) {
+        setShowFontMenu(false);
+        setShowPaletteEditor(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  const execCmd = (command, value = null) => {
+    document.execCommand(command, false, value);
     editorRef.current?.focus();
   };
 
   const changeFontSize = (delta) => {
     const next = Math.min(MAX_SIZE, Math.max(MIN_SIZE, fontSize + delta));
     setFontSize(next);
-    if (editorRef.current) editorRef.current.style.fontSize = `${next}px`;
+    if (editorRef.current) {
+      editorRef.current.style.fontSize = `${next}px`;
+    }
   };
 
   const handleMouseUp = useCallback(() => {
     requestAnimationFrame(() => {
       const selection = window.getSelection();
       const text = selection?.toString().trim();
-      if (!text || !selection?.rangeCount) { setTooltip(null); return; }
+
+      if (!text || !selection?.rangeCount || !editorRef.current) {
+        setTooltip(null);
+        return;
+      }
 
       const range = selection.getRangeAt(0);
       savedRangeRef.current = range.cloneRange();
 
       const rangeRect = range.getBoundingClientRect();
-      const containerRect = editorRef.current.closest('.editor-scroll-area').getBoundingClientRect();
+      const containerRect = editorRef.current
+        .closest(".editor-scroll-area")
+        ?.getBoundingClientRect();
+
+      if (!containerRect) {
+        setTooltip(null);
+        return;
+      }
 
       setTooltip({
         x: rangeRect.right - containerRect.left + 8,
@@ -263,189 +327,211 @@ export default function DynamicEditor({ initialContent, onAddSelection, onChange
     });
   }, []);
 
-  const handleAddAnnotation = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleAddAnnotation = useCallback((event) => {
+    event.preventDefault();
+    event.stopPropagation();
 
     const range = savedRangeRef.current;
     if (!range) return;
+
     const text = range.toString().trim();
-    if (!text) return;
+    if (!text || !editorRef.current) return;
 
     const ledColor = LED_COLORS[Math.floor(Math.random() * LED_COLORS.length)];
     const spanId = `led-${Date.now()}`;
-
     const selection = window.getSelection();
+
     selection.removeAllRanges();
     selection.addRange(range);
 
-    const spanHtml = `<span
-      id="${spanId}"
-      style="background-color:${ledColor.hex}22; color:${ledColor.hex}; border-bottom:2px solid ${ledColor.hex}; border-radius:3px; padding:0 3px; cursor:pointer; transition:box-shadow 0.2s;"
-    >${text}</span>`;
+    const spanHtml = `<span id="${spanId}" style="background-color:${ledColor.hex}22;color:${ledColor.hex};border-bottom:2px solid ${ledColor.hex};border-radius:3px;padding:0 3px;cursor:pointer;transition:box-shadow 0.2s;">${text}</span>`;
 
-    document.execCommand('insertHTML', false, spanHtml);
+    document.execCommand("insertHTML", false, spanHtml);
 
-    if (onAddSelection) onAddSelection(text, ledColor, spanId);
-    if (onChange) onChange(editorRef.current.innerText);
+    if (onAddSelection) {
+      onAddSelection(text, ledColor, spanId);
+    }
+
+    if (onChange) {
+      onChange(editorRef.current.innerText);
+    }
 
     savedRangeRef.current = null;
     selection.removeAllRanges();
     setTooltip(null);
   }, [onAddSelection, onChange]);
 
-  // Fecha menus ao clicar fora
-  useEffect(() => {
-    const close = (e) => {
-      if (!e.target.closest('[data-menu]')) {
-        setShowFontMenu(false);
-        setShowPaletteEditor(false);
-      }
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, []);
-
   return (
-    <div className="flex flex-col h-full w-full relative">
-
-      {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 bg-[#081525] border-b border-white/5 shrink-0">
-
-        {/* Tamanho da fonte */}
+    <div className="relative flex h-full w-full flex-col">
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-[#40485d]/10 bg-[#0f1930] px-3 py-3">
         <button
-          onMouseDown={(e) => { e.preventDefault(); changeFontSize(-1); }}
-          className="px-1.5 py-1 text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors font-bold"
+          type="button"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            changeFontSize(-1);
+          }}
+          className="rounded-md px-2 py-1.5 text-xs font-bold text-[#a3aac4] transition-colors hover:bg-[#141f38] hover:text-white"
           title="Diminuir fonte"
-        >A-</button>
-        <span className="text-[10px] text-slate-500 min-w-[30px] text-center">{fontSize}px</span>
+        >
+          A-
+        </button>
+
+        <span className="min-w-[34px] text-center text-[10px] text-[#6d758c]">
+          {fontSize}px
+        </span>
+
         <button
-          onMouseDown={(e) => { e.preventDefault(); changeFontSize(1); }}
-          className="px-1.5 py-1 text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors font-bold"
+          type="button"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            changeFontSize(1);
+          }}
+          className="rounded-md px-2 py-1.5 text-xs font-bold text-[#a3aac4] transition-colors hover:bg-[#141f38] hover:text-white"
           title="Aumentar fonte"
-        >A+</button>
+        >
+          A+
+        </button>
 
         <Sep />
 
-        {/* Fonte */}
-        <div className="relative" data-menu>
+        <div className="relative" data-editor-menu>
           <button
-            onMouseDown={(e) => { e.preventDefault(); setShowFontMenu(p => !p); setShowPaletteEditor(false); }}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] text-slate-300 hover:bg-white/10 rounded transition-colors"
+            type="button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              setShowFontMenu((current) => !current);
+              setShowPaletteEditor(false);
+            }}
+            className="flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] text-[#dee5ff] transition-colors hover:bg-[#141f38]"
           >
             {fontFamily.label}
-            <svg className="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            <svg className="h-3 w-3 text-[#6d758c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </button>
-          {showFontMenu && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-[#0B1D35] border border-white/10 rounded-lg shadow-xl overflow-hidden min-w-[140px] animate-in fade-in slide-in-from-top-1 duration-150">
-              {FONT_FAMILIES.map(f => (
+
+          {showFontMenu ? (
+            <div className="absolute left-0 top-full z-50 mt-2 min-w-[140px] overflow-hidden rounded-lg border border-[#40485d]/20 bg-[#0f1930] shadow-xl">
+              {FONT_FAMILIES.map((family) => (
                 <button
-                  key={f.value}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    setFontFamily(f);
-                    if (editorRef.current) editorRef.current.style.fontFamily = f.value;
+                  key={family.value}
+                  type="button"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    setFontFamily(family);
+                    if (editorRef.current) {
+                      editorRef.current.style.fontFamily = family.value;
+                    }
                     setShowFontMenu(false);
                   }}
-                  className={`w-full text-left px-3 py-2 text-xs hover:bg-white/10 transition-colors ${fontFamily.value === f.value ? 'text-sky-400' : 'text-slate-300'}`}
+                  className={`w-full px-3 py-2 text-left text-xs transition-colors hover:bg-[#141f38] ${
+                    fontFamily.value === family.value ? "text-[#69daff]" : "text-[#dee5ff]"
+                  }`}
                 >
-                  {f.label}
+                  {family.label}
                 </button>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
 
         <Sep />
 
-        {/* Formatação */}
-        <ToolBtn icon={<Bold size={13} />}          onClick={() => execCmd('bold')}          title="Negrito" />
-        <ToolBtn icon={<Italic size={13} />}        onClick={() => execCmd('italic')}        title="Itálico" />
-        <ToolBtn icon={<Underline size={13} />}     onClick={() => execCmd('underline')}     title="Sublinhado" />
-        <ToolBtn icon={<Strikethrough size={13} />} onClick={() => execCmd('strikeThrough')} title="Tachado" />
+        <ToolBtn icon={<Bold size={13} />} onClick={() => execCmd("bold")} title="Negrito" />
+        <ToolBtn icon={<Italic size={13} />} onClick={() => execCmd("italic")} title="Italico" />
+        <ToolBtn icon={<Underline size={13} />} onClick={() => execCmd("underline")} title="Sublinhado" />
+        <ToolBtn icon={<Strikethrough size={13} />} onClick={() => execCmd("strikeThrough")} title="Tachado" />
         <ToolBtn
           icon={<span className="text-[11px] font-bold leading-none">N</span>}
-          onClick={() => execCmd('removeFormat')}
-          title="Limpar formatação"
+          onClick={() => execCmd("removeFormat")}
+          title="Limpar formatacao"
         />
 
         <Sep />
 
-        {/* Listas */}
-        <ToolBtn icon={<List size={13} />} onClick={() => execCmd('insertUnorderedList')} title="Lista" />
-        <ToolBtn icon={<Code size={13} />} onClick={() => execCmd('formatBlock', 'PRE')} title="Bloco de código" />
+        <ToolBtn icon={<List size={13} />} onClick={() => execCmd("insertUnorderedList")} title="Lista" />
+        <ToolBtn icon={<Code size={13} />} onClick={() => execCmd("formatBlock", "PRE")} title="Bloco de codigo" />
 
         <Sep />
 
-        {/* Paleta de cores de texto */}
-        {textPalette.map(color => (
+        {textPalette.map((color) => (
           <button
             key={color.id}
-            onMouseDown={(e) => { e.preventDefault(); execCmd('foreColor', color.hex); }}
+            type="button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              execCmd("foreColor", color.hex);
+            }}
             title={`Cor: ${color.name}`}
-            className="flex flex-col items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-white/10 transition-colors group"
+            className="group flex flex-col items-center gap-0.5 rounded-md px-1.5 py-1 transition-colors hover:bg-[#141f38]"
           >
-            <span className="text-[9px] text-slate-500 group-hover:text-slate-400 leading-none">{color.name}</span>
-            <span className="w-5 h-2.5 rounded-sm border border-white/10" style={{ backgroundColor: color.hex }} />
+            <span className="leading-none text-[9px] text-[#6d758c] group-hover:text-[#a3aac4]">
+              {color.name}
+            </span>
+            <span className="h-2.5 w-5 rounded-sm border border-white/10" style={{ backgroundColor: color.hex }} />
           </button>
         ))}
 
-        {/* Editar Cores */}
-        <div className="relative ml-1" data-menu>
+        <div className="relative ml-1" data-editor-menu>
           <button
-            onMouseDown={(e) => { e.preventDefault(); setShowPaletteEditor(p => !p); setShowFontMenu(false); }}
-            className={`flex items-center gap-1.5 px-2 py-1 text-[11px] rounded-lg border transition-all ${showPaletteEditor ? 'bg-sky-500/20 border-sky-500/40 text-sky-300' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'}`}
+            type="button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              setShowPaletteEditor((current) => !current);
+              setShowFontMenu(false);
+            }}
+            className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] transition-all ${
+              showPaletteEditor
+                ? "border-[#69daff]/30 bg-[#69daff]/10 text-[#69daff]"
+                : "border-[#40485d]/20 bg-[#141f38] text-[#a3aac4] hover:text-white"
+            }`}
           >
             <PaintBucket size={11} />
             Editar cores
           </button>
-          {showPaletteEditor && (
+
+          {showPaletteEditor ? (
             <ColorPaletteEditor
               palette={textPalette}
               onChange={setTextPalette}
               onClose={() => setShowPaletteEditor(false)}
             />
-          )}
+          ) : null}
         </div>
 
-        {/* Hint */}
-        <span className="ml-auto text-[10px] text-slate-600 hidden lg:block pr-1 shrink-0">
-          Selecione → <span className="text-sky-500">+</span> para anotar
+        <span className="ml-auto hidden shrink-0 pr-1 text-[10px] text-[#6d758c] lg:block">
+          Selecione um trecho para anotar
         </span>
       </div>
 
-      {/* ── Editor Area ──────────────────────────────────────────────────── */}
-      <div className="editor-scroll-area relative flex-1 overflow-y-auto custom-scrollbar bg-[#040D17]">
+      <div className="editor-scroll-area custom-scrollbar relative flex-1 overflow-y-auto bg-[#091328]">
         <div
           ref={editorRef}
-          className="min-h-full outline-none font-mono leading-7 text-slate-200 p-6 whitespace-pre-wrap"
-          style={{ fontSize: `${fontSize}px`, fontFamily: fontFamily.value }}
           contentEditable
           suppressContentEditableWarning
           spellCheck={false}
           onMouseUp={handleMouseUp}
           onKeyUp={() => setTooltip(null)}
-          onInput={(e) => { if (onChange) onChange(e.currentTarget.innerText); }}
+          onInput={(event) => {
+            if (onChange) {
+              onChange(event.currentTarget.innerText);
+            }
+          }}
+          className="min-h-full whitespace-pre-wrap p-6 font-mono leading-7 text-[#dee5ff] outline-none"
+          style={{ fontFamily: fontFamily.value, fontSize: `${fontSize}px` }}
         />
 
-        {/* Botão Flutuante LED "+" */}
-        {tooltip && (
+        {tooltip ? (
           <button
+            type="button"
             onMouseDown={handleAddAnnotation}
-            className="absolute z-50 flex items-center justify-center w-8 h-8 rounded-full
-              bg-gradient-to-br from-sky-500 to-indigo-600
-              shadow-[0_0_16px_rgba(99,102,241,0.5)]
-              hover:scale-110 hover:shadow-[0_0_24px_rgba(99,102,241,0.8)]
-              active:scale-95
-              border border-indigo-300/30
-              transition-all duration-150
-              animate-in fade-in zoom-in duration-150"
+            title="Criar anotacao para este trecho"
             style={{ left: tooltip.x, top: tooltip.y }}
-            title="Criar anotação para este trecho"
+            className="absolute z-50 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-[#69daff] text-white shadow-[0_0_18px_rgba(105,218,255,0.35)] transition-all duration-150 hover:scale-110 hover:shadow-[0_0_24px_rgba(105,218,255,0.55)] active:scale-95"
           >
-            <Plus className="w-4 h-4 text-white" strokeWidth={2.5} />
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   );

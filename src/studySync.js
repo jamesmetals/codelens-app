@@ -45,11 +45,15 @@ function normalizeTechnology(technology, index = 0) {
   const name = String(technology?.name || "").trim() || `Tecnologia ${index + 1}`;
   const contents = normalizeArray(technology?.contents);
   const normalizedLessons = Number(technology?.lessons);
+  const category = String(technology?.category || "").trim() || "Minhas tecnologias";
+  const categoryAccent = String(technology?.categoryAccent || "").trim() || "Conteúdos organizados";
 
   return {
     ...cloneValue(technology || {}),
     id: String(technology?.id || slugify(name) || `tecnologia-${index + 1}`),
     name,
+    category,
+    categoryAccent,
     image: normalizeTechnologyImage(technology?.image),
     lessons: Number.isFinite(normalizedLessons) ? normalizedLessons : contents.length,
     contents,
@@ -138,6 +142,8 @@ export function mergeStudyEntries(entries, cachedTechs = []) {
     if (!tech) {
       tech = normalizeTechnology({
         name: technologyName,
+        category: "Minhas tecnologias",
+        categoryAccent: "Conteúdos organizados",
         image: null,
         progress: 0,
         lessons: 0,

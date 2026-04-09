@@ -1,175 +1,284 @@
-import { useState } from "react";
+import { createElement, useMemo, useState } from "react";
 import {
-  ArrowLeft, Plus, Search, LayoutList, LayoutGrid, AlignJustify,
-  GripVertical, BookOpen, Pencil, CheckCircle2, Clock,
-  Trash2, AlertTriangle
+  Bell,
+  BookMarked,
+  CheckCircle2,
+  Clock,
+  FileText,
+  GripVertical,
+  HelpCircle,
+  LayoutDashboard,
+  LayoutGrid,
+  LayoutList,
+  Pencil,
+  Plus,
+  Search,
+  Settings,
+  Shield,
+  Trash2,
+  UserCircle2,
+  X,
 } from "lucide-react";
+
 import TechnologyArtwork from "./TechnologyArtwork";
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
-function StatusBadge({ status }) {
-  const map = {
-    "em-andamento": { label: "Em andamento", classes: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
-    "concluido":    { label: "Concluído",     classes: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
-  };
-  const cfg = map[status] || map["em-andamento"];
+function GoogleMark({ className = "" }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wider ${cfg.classes}`}>
-      {status === "concluido" ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-      {cfg.label}
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M21.805 10.023H12.24v3.955h5.478c-.236 1.274-.955 2.353-2.032 3.079v2.56h3.294c1.929-1.776 3.04-4.395 3.04-7.305 0-.691-.06-1.363-.215-2.289Z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12.24 22c2.743 0 5.045-.907 6.727-2.383l-3.294-2.56c-.907.611-2.068.974-3.433.974-2.652 0-4.903-1.79-5.711-4.2H3.131v2.64A10.16 10.16 0 0 0 12.24 22Z"
+        fill="#34A853"
+      />
+      <path
+        d="M6.529 13.83a6.107 6.107 0 0 1 0-3.858V7.332H3.131a10.16 10.16 0 0 0 0 9.139l3.398-2.64Z"
+        fill="#FBBC04"
+      />
+      <path
+        d="M12.24 5.79c1.494 0 2.82.514 3.865 1.523l2.897-2.897C17.28 2.81 14.979 2 12.24 2A10.16 10.16 0 0 0 3.131 7.332l3.398 2.64c.808-2.41 3.06-4.182 5.711-4.182Z"
+        fill="#EA4335"
+      />
+    </svg>
+  );
+}
+
+function getAvatarUrl(authUser) {
+  return String(
+    authUser?.user_metadata?.avatar_url
+      || authUser?.user_metadata?.picture
+      || authUser?.user_metadata?.photo_url
+      || "",
+  ).trim();
+}
+
+function getAvatarFallback(authUser) {
+  const source = String(
+    authUser?.user_metadata?.full_name
+      || authUser?.user_metadata?.name
+      || authUser?.email
+      || "C",
+  ).trim();
+
+  return source.charAt(0).toUpperCase() || "C";
+}
+
+function SidebarItem({ active = false, icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group flex w-full items-center px-8 py-3 text-left transition-all ${
+        active
+          ? "border-r-2 border-[#69daff] bg-gradient-to-r from-[#69daff]/10 to-transparent text-[#69daff]"
+          : "text-[#a3aac4] hover:bg-[#141f38] hover:text-[#dee5ff]"
+      }`}
+    >
+      {createElement(icon, { className: "mr-3 h-[18px] w-[18px]" })}
+      <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em]">
+        {label}
+      </span>
+    </button>
+  );
+}
+
+function SupportLink({ icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex items-center py-2 text-[#a3aac4] transition-colors hover:text-[#dee5ff]"
+    >
+      {createElement(icon, { className: "mr-2 h-4 w-4" })}
+      <span className="font-['Manrope'] text-[10px] uppercase tracking-[0.24em]">
+        {label}
+      </span>
+    </button>
+  );
+}
+
+function StatusBadge({ status }) {
+  const isDone = status === "concluido";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded px-2 py-1 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.16em] ${
+        isDone
+          ? "bg-emerald-500/15 text-emerald-300"
+          : "bg-amber-500/15 text-amber-300"
+      }`}
+    >
+      {isDone ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+      {isDone ? "Concluido" : "Em andamento"}
     </span>
   );
 }
 
-// ─── Content Card — LISTA ──────────────────────────────────────────────────────
-function CardList({ content, onOpen, onDelete }) {
+function ListCard({ content, onDelete, onOpen }) {
   return (
-    <div
-      className="group flex items-start gap-4 p-5 rounded-2xl border border-white/8 bg-[#0B1D35]/20 hover:border-sky-500/30 hover:bg-[#0B1D35]/50 transition-all duration-200 cursor-pointer relative"
-      onClick={() => onOpen(content)}
+    <article
+      className="group rounded-xl border border-[#40485d]/20 bg-[#0f1930] transition-colors hover:bg-[#141f38]"
     >
-      {/* drag handle */}
-      <div className="mt-0.5 text-slate-600 group-hover:text-slate-400 transition-colors shrink-0 cursor-grab">
-        <GripVertical className="h-4 w-4" />
-      </div>
+      <button
+        type="button"
+        onClick={() => onOpen(content)}
+        className="flex w-full items-start gap-4 p-6 text-left"
+      >
+        <div className="pt-1 text-[#6d758c]">
+          <GripVertical className="h-4 w-4" />
+        </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-[15px] font-semibold text-white group-hover:text-sky-300 transition-colors leading-snug">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-4">
+            <h3 className="font-['Manrope'] text-[16px] font-bold leading-6 text-[#dee5ff]">
+              {content.title}
+            </h3>
+
+            <div className="flex items-center gap-3">
+              <StatusBadge status={content.status} />
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete(content);
+                }}
+                className="opacity-0 transition-all hover:text-rose-300 group-hover:opacity-100"
+                aria-label={`Excluir ${content.title}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {content.summary ? (
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#a3aac4]">
+              {content.summary}
+            </p>
+          ) : null}
+        </div>
+      </button>
+    </article>
+  );
+}
+
+function BlockCard({ content, onDelete, onOpen }) {
+  return (
+    <article className="group overflow-hidden rounded-xl border border-[#40485d]/20 bg-[#0f1930] transition-colors hover:bg-[#141f38]">
+      <button
+        type="button"
+        onClick={() => onOpen(content)}
+        className="flex h-full w-full flex-col gap-4 p-5 text-left"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <StatusBadge status={content.status} />
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(content);
+            }}
+            className="opacity-0 transition-all hover:text-rose-300 group-hover:opacity-100"
+            aria-label={`Excluir ${content.title}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div>
+          <h3 className="font-['Manrope'] text-[15px] font-bold leading-6 text-[#dee5ff]">
             {content.title}
           </h3>
-          <div className="flex items-center gap-3 shrink-0">
-            <StatusBadge status={content.status} />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(content);
-              }}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {content.summary && (
-          <p className="mt-2 text-sm text-slate-400 leading-relaxed line-clamp-2">
-            {content.summary}
+          <p className="mt-3 text-sm leading-6 text-[#a3aac4] line-clamp-4">
+            {content.summary || "Sem resumo ainda."}
           </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Content Card — BLOCOS ─────────────────────────────────────────────────────
-function CardBlock({ content, onOpen, onDelete }) {
-  return (
-    <div
-      className="group flex flex-col gap-3 p-5 rounded-2xl border border-white/8 bg-[#0B1D35]/20 hover:border-sky-500/30 hover:bg-[#0B1D35]/50 transition-all duration-200 cursor-pointer relative"
-      onClick={() => onOpen(content)}
-    >
-      <div className="flex justify-between items-start">
-        <StatusBadge status={content.status} />
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(content);
-          }}
-          className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
-      <h3 className="text-[14px] font-semibold text-white group-hover:text-sky-300 transition-colors leading-snug">
-        {content.title}
-      </h3>
-      {content.summary ? (
-        <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">{content.summary}</p>
-      ) : (
-        <p className="text-xs text-slate-600 italic">Sem resumo</p>
-      )}
-      <div className="mt-auto pt-2 flex items-center justify-between">
-        <div className="flex flex-wrap gap-1.5 ">
-          {content.tags.slice(0, 2).map(tag => (
-            <span key={tag} className="text-[9px] bg-white/5 border border-white/8 text-slate-500 px-1.5 py-0.5 rounded-md">
-              {tag}
-            </span>
-          ))}
         </div>
-        <button className="text-[10px] text-sky-400 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-          ABRIR →
-        </button>
-      </div>
-    </div>
+      </button>
+    </article>
   );
 }
 
-// ─── Content Card — COMPACTO ───────────────────────────────────────────────────
-function CardCompact({ content, onOpen, onDelete }) {
+function CompactCard({ content, onDelete, onOpen }) {
   return (
-    <div
-      className="group flex items-center justify-between px-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] hover:border-sky-500/20 hover:bg-[#0B1D35]/40 transition-all duration-150 cursor-pointer"
-      onClick={() => onOpen(content)}
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <GripVertical className="h-3.5 w-3.5 text-slate-600 shrink-0" />
-        <span className="text-sm text-white group-hover:text-sky-300 transition-colors truncate">
-          {content.title}
-        </span>
-      </div>
-      <div className="flex items-center gap-3 shrink-0">
-        <StatusBadge status={content.status} />
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(content);
-          }}
-          className="p-1 rounded-md text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
+    <article className="rounded-lg border border-[#40485d]/20 bg-[#0f1930] transition-colors hover:bg-[#141f38]">
+      <button
+        type="button"
+        onClick={() => onOpen(content)}
+        className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <GripVertical className="h-4 w-4 shrink-0 text-[#6d758c]" />
+          <span className="truncate font-['Manrope'] text-sm font-semibold text-[#dee5ff]">
+            {content.title}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <StatusBadge status={content.status} />
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(content);
+            }}
+            className="opacity-0 transition-all hover:text-rose-300 group-hover:opacity-100"
+            aria-label={`Excluir ${content.title}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </button>
+    </article>
   );
 }
 
-// ─── Modal de Confirmação de Exclusão ──────────────────────────────────────────
 function ConfirmDeleteModal({ isOpen, onClose, onConfirm, title }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-[#0D1F35] border border-white/10 rounded-2xl p-6 shadow-2xl animate-scale-in">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-            <AlertTriangle className="h-6 w-6 text-red-500" />
-          </div>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-[#40485d]/30 bg-[#0f1930] p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-white leading-tight">Excluir conteúdo?</h2>
-            <p className="text-sm text-slate-400 mt-0.5">Esta ação não pode ser desfeita.</p>
+            <h2 className="font-['Manrope'] text-lg font-bold text-[#dee5ff]">
+              Excluir conteudo
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#a3aac4]">
+              Essa acao remove o bloco da visualizacao atual.
+            </p>
           </div>
+
+          <button type="button" onClick={onClose} className="text-[#a3aac4] hover:text-[#dee5ff]">
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="bg-black/20 rounded-xl p-4 mb-6 border border-white/5">
-          <p className="text-sm text-slate-300 font-medium line-clamp-2">
-            "{title}"
-          </p>
+        <div className="mt-5 rounded-lg border border-[#40485d]/20 bg-black/20 px-4 py-3 text-sm text-[#dee5ff]">
+          {title}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="mt-6 flex items-center justify-end gap-3">
           <button
+            type="button"
             onClick={onClose}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-semibold transition-colors"
+            className="rounded-md border border-[#40485d]/30 px-4 py-2 text-sm font-semibold text-[#a3aac4] transition-colors hover:border-[#69daff]/30 hover:text-[#dee5ff]"
           >
             Cancelar
           </button>
           <button
+            type="button"
             onClick={onConfirm}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors shadow-lg shadow-red-900/20"
+            className="rounded-md bg-[#9f0519] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#d7383b]"
           >
-            Confirmar Exclusão
+            Excluir
           </button>
         </div>
       </div>
@@ -177,38 +286,49 @@ function ConfirmDeleteModal({ isOpen, onClose, onConfirm, title }) {
   );
 }
 
-
-
-export default function TechnologyContentsList({ activeTechnology, onBack, onOpenStudyRoom }) {
-  const [view, setView] = useState("lista"); // "lista" | "blocos" | "compacto"
+export default function TechnologyContentsList({
+  activeTechnology,
+  authUser,
+  onBack,
+  onEditTechnology,
+  onOpenAccount,
+  onOpenStudyRoom,
+  onSignInWithGoogle,
+  supabaseConfigured,
+}) {
+  const [view, setView] = useState("lista");
   const [search, setSearch] = useState("");
   const [contents, setContents] = useState(activeTechnology?.contents || []);
   const [deleteModal, setDeleteModal] = useState({ open: false, item: null });
 
-  if (!activeTechnology) return null;
+  const isLogged = Boolean(authUser);
+  const avatarUrl = getAvatarUrl(authUser);
 
-  const filtered = contents.filter(c =>
-    c.title.toLowerCase().includes(search.toLowerCase()) ||
-    c.tags.some(t => t.toLowerCase().includes(search.toLowerCase())) ||
-    (c.summary || "").toLowerCase().includes(search.toLowerCase())
+  const filtered = useMemo(
+    () => contents.filter((content) => (
+      content.title.toLowerCase().includes(search.toLowerCase())
+      || content.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()))
+      || (content.summary || "").toLowerCase().includes(search.toLowerCase())
+    )),
+    [contents, search],
   );
 
-  // Abrir o StudyRoom editor para conteúdo existente
+  if (!activeTechnology) return null;
+
   const openEditor = (content) => onOpenStudyRoom(content);
 
-  // Exclusão
   const confirmDelete = (content) => setDeleteModal({ open: true, item: content });
+
   const handleDelete = () => {
-    if (deleteModal.item) {
-      setContents(prev => prev.filter(c => c.id !== deleteModal.item.id));
-      setDeleteModal({ open: false, item: null });
-    }
+    if (!deleteModal.item) return;
+
+    setContents((current) => current.filter((content) => content.id !== deleteModal.item.id));
+    setDeleteModal({ open: false, item: null });
   };
 
-  // Criar novo bloco em branco...
   const openCreator = () => onOpenStudyRoom({
     id: Date.now(),
-    title: "Novo conteúdo",
+    title: "Novo conteudo",
     summary: "",
     tags: [],
     status: "em-andamento",
@@ -216,143 +336,242 @@ export default function TechnologyContentsList({ activeTechnology, onBack, onOpe
     createdAt: new Date().toISOString().slice(0, 10),
   });
 
-  const modeLabel = { lista: "MODO EM LISTA", blocos: "MODO EM BLOCOS", compacto: "MODO COMPACTO" };
-
   return (
-    <div className="flex h-screen overflow-hidden bg-[#06111f] animate-fade-in relative z-10 w-full">
+    <div className="relative min-h-screen bg-[#060e20] text-[#dee5ff]">
+      <div className="fixed inset-0 bg-[#060e20]" />
 
-        {/* ── Sidebar ── */}
-        <aside className="w-64 shrink-0 flex flex-col border-r border-white/8 bg-[#040D17]/60 p-5 gap-6">
-          {/* Back */}
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium w-fit"
-          >
-            <ArrowLeft className="h-4 w-4" /> Dashboard
+      <aside className="fixed left-0 top-0 z-[60] hidden h-full w-64 flex-col gap-y-6 bg-[#091328] py-8 lg:flex">
+        <div className="mb-4 px-8">
+          <button type="button" onClick={onBack} className="text-left">
+            <h1 className="font-['Manrope'] text-2xl font-black italic tracking-tighter text-[#69daff]">
+              CodenLens
+            </h1>
+            <p className="mt-1 font-['Manrope'] text-[10px] uppercase tracking-widest text-[#a3aac4]">
+              Biblioteca ativa
+            </p>
           </button>
+        </div>
 
-          {/* Tecnologia ativa */}
-          <div>
-            <p className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-3">Tecnologia ativa</p>
-            <div className="flex items-center gap-3 bg-white/5 border border-white/8 rounded-xl p-3">
-              <TechnologyArtwork technology={activeTechnology} className="h-11 w-11 shrink-0 rounded-xl" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{activeTechnology.name}</p>
-                <p className="text-[10px] text-slate-400">{contents.length} conteúdos</p>
-              </div>
-              <Pencil className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-            </div>
-          </div>
-
-          {/* CTA Criar */}
-          <button
-            onClick={openCreator}
-            className="flex items-center justify-center gap-2 w-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 font-semibold text-sm py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:shadow-[0_0_25px_rgba(14,165,233,0.2)]"
-          >
-            <Plus className="h-4 w-4" /> Criar novo conteúdo
-          </button>
-
-          {/* Search */}
-          <div>
-            <p className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-2">Buscar conteúdos</p>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Títulos, tags ou trechos..."
-                className="w-full bg-black/30 border border-white/8 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-sky-500/40 transition-all"
-              />
-            </div>
-          </div>
-
-          <p className="text-[10px] text-slate-600 mt-auto">Arraste os conteúdos para reordenar.</p>
-        </aside>
-
-        {/* ── Main Area ── */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className="max-w-4xl mx-auto px-6 py-8">
-
-            {/* Header */}
-            <div className="flex items-start justify-between mb-8">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="w-1 h-7 bg-sky-500 rounded-full inline-block" />
-                  <h1 className="text-3xl font-bold text-white font-['Space_Grotesk'] tracking-tight">
-                    {activeTechnology.name}
-                  </h1>
-                </div>
-                <p className="text-slate-400 text-sm ml-4">
-                  Seus blocos de estudo — criados e organizados por você.
-                </p>
-              </div>
-              <span className="text-sm text-slate-500 pt-2">{filtered.length} conteúdos</span>
-            </div>
-
-            {/* Toolbar */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center bg-black/30 border border-white/8 rounded-xl p-1 gap-0.5">
-                {[
-                  { id: "lista",    icon: LayoutList,   label: "Lista" },
-                  { id: "blocos",   icon: LayoutGrid,   label: "Blocos" },
-                  { id: "compacto", icon: AlignJustify, label: "Compacta" },
-                ].map((viewOption) => (
-                  <button
-                    key={viewOption.id}
-                    onClick={() => setView(viewOption.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      view === viewOption.id
-                        ? "bg-white/10 text-white"
-                        : "text-slate-500 hover:text-slate-300"
-                    }`}
-                  >
-                    {viewOption.icon({ className: "h-3.5 w-3.5" })} {viewOption.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-4">
-                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">{modeLabel[view]}</span>
-              </div>
-            </div>
-
-            {/* Content List */}
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center opacity-60">
-                <BookOpen className="h-10 w-10 text-slate-500 mb-4" />
-                <p className="text-white font-medium mb-1">
-                  {search ? "Nenhum conteúdo encontrado" : "Sem conteúdos ainda"}
-                </p>
-                <p className="text-sm text-slate-500">
-                  {search ? "Tente outra busca." : "Clique em \"Criar novo conteúdo\" para começar."}
-                </p>
-              </div>
-            ) : (
-              <div className={view === "blocos" ? "grid grid-cols-2 gap-4" : "space-y-3"}>
-                {filtered.map(content => {
-                  if (view === "blocos")   return <CardBlock   key={content.id} content={content} onOpen={openEditor} onDelete={confirmDelete} />;
-                  if (view === "compacto") return <CardCompact key={content.id} content={content} onOpen={openEditor} onDelete={confirmDelete} />;
-                  return (
-                    <CardList
-                      key={content.id}
-                      content={content}
-                      onOpen={openEditor}
-                      onDelete={confirmDelete}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <ConfirmDeleteModal
-            isOpen={deleteModal.open}
-            onClose={() => setDeleteModal({ open: false, item: null })}
-            onConfirm={handleDelete}
-            title={deleteModal.item?.title}
+        <nav className="flex-1 space-y-1">
+          <SidebarItem icon={LayoutDashboard} label="Painel" onClick={onBack} />
+          <SidebarItem active icon={BookMarked} label="Conteudos" onClick={() => {}} />
+          <SidebarItem
+            icon={UserCircle2}
+            label={isLogged ? "Conta" : "Entrar"}
+            onClick={isLogged ? onOpenAccount : onSignInWithGoogle}
           />
-        </main>
-      </div>
+          <SidebarItem icon={Shield} label="Acompanhamento" onClick={() => {}} />
+        </nav>
+
+        <div className="px-8">
+          <p className="font-['Manrope'] text-[10px] uppercase tracking-widest text-[#6d758c]">
+            Tecnologia ativa
+          </p>
+
+          <div className="mt-3 rounded-xl border border-[#40485d]/20 bg-[#0f1930] p-4">
+            <div className="flex items-center gap-3">
+              <TechnologyArtwork
+                technology={activeTechnology}
+                className="h-12 w-12 shrink-0 rounded-lg border-white/10"
+              />
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-['Manrope'] text-sm font-bold text-[#dee5ff]">
+                  {activeTechnology.name}
+                </p>
+                <p className="mt-1 text-xs text-[#a3aac4]">
+                  {filtered.length} conteudos
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onEditTechnology(activeTechnology)}
+                className="text-[#a3aac4] transition-colors hover:text-[#69daff]"
+                aria-label={`Editar ${activeTechnology.name}`}
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={openCreator}
+            className="mt-4 w-full rounded-md bg-gradient-to-br from-[#69daff] to-[#00c0ea] py-2 font-['Manrope'] text-xs font-bold text-[#002a35] shadow-lg shadow-[#69daff]/20"
+          >
+            Criar novo conteudo
+          </button>
+        </div>
+
+        <div className="mt-auto px-8">
+          <div className="space-y-1 border-t border-[#40485d]/10 pt-4">
+            <SupportLink icon={FileText} label="Documentacao" onClick={() => {}} />
+            <SupportLink icon={HelpCircle} label="Ajuda" onClick={() => {}} />
+          </div>
+        </div>
+      </aside>
+
+      <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between bg-[#060e20]/80 px-4 backdrop-blur-md sm:px-6 lg:ml-64 lg:max-w-[calc(100%-16rem)] lg:px-8">
+        <div className="flex flex-1 items-center gap-x-6">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#a3aac4]" />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar conteudos..."
+              className="w-full rounded-lg border-none bg-black py-2 pl-10 pr-4 text-sm text-[#dee5ff] placeholder:text-[#6d758c] focus:ring-2 focus:ring-[#69daff]/50"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-x-4 sm:gap-x-6">
+          <button
+            type="button"
+            onClick={openCreator}
+            className="hidden rounded-md bg-gradient-to-r from-[#69daff] to-[#00c0ea] px-4 py-2 font-['Manrope'] text-sm font-bold tracking-tight text-[#002a35] transition-all hover:shadow-lg sm:block"
+          >
+            Novo conteudo
+          </button>
+
+          <div className="hidden items-center gap-x-3 text-[#a3aac4] sm:flex">
+            <button className="transition-colors hover:text-[#69daff]">
+              <Bell className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={isLogged ? onOpenAccount : onSignInWithGoogle}
+              className="transition-colors hover:text-[#69daff]"
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+          </div>
+
+          {isLogged ? (
+            <button
+              type="button"
+              onClick={onOpenAccount}
+              className="h-8 w-8 overflow-hidden rounded-full border border-[#40485d]/30"
+              aria-label="Abrir conta"
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt="Avatar da conta"
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center bg-[#141f38] text-xs font-semibold text-[#dee5ff]">
+                  {getAvatarFallback(authUser)}
+                </span>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onSignInWithGoogle}
+              disabled={!supabaseConfigured}
+              className="inline-flex items-center gap-2 rounded-md border border-[#40485d]/30 bg-[#141f38] px-3 py-2 font-['Manrope'] text-xs font-bold text-[#dee5ff] transition-colors hover:border-[#69daff]/40 hover:text-[#69daff] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <GoogleMark className="h-4 w-4" />
+              Entrar com Google
+            </button>
+          )}
+        </div>
+      </header>
+
+      <main className="relative z-10 min-h-screen bg-[#060e20] px-4 pb-12 pt-20 sm:px-6 lg:ml-64 lg:px-10">
+        <header className="mb-10">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="inline-block h-8 w-1 rounded-full bg-[#69daff]" />
+                <h2 className="font-['Manrope'] text-4xl font-extrabold tracking-tighter text-[#dee5ff]">
+                  {activeTechnology.name}
+                </h2>
+              </div>
+              <p className="ml-4 mt-3 max-w-2xl text-sm leading-6 text-[#a3aac4]">
+                Seus blocos de estudo, criados e organizados por voce.
+              </p>
+            </div>
+
+            <span className="pt-2 font-['Manrope'] text-sm text-[#a3aac4]">
+              {filtered.length} conteudos
+            </span>
+          </div>
+        </header>
+
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <div className="flex items-center rounded-lg border border-[#40485d]/30 bg-black/30 p-1">
+            {[
+              { id: "lista", icon: LayoutList, label: "Lista" },
+              { id: "blocos", icon: LayoutGrid, label: "Blocos" },
+            ].map((viewOption) => (
+              <button
+                key={viewOption.id}
+                type="button"
+                onClick={() => setView(viewOption.id)}
+                className={`flex items-center gap-2 rounded-md px-3 py-1.5 font-['Manrope'] text-xs font-semibold transition-colors ${
+                  view === viewOption.id
+                    ? "bg-[#192540] text-[#dee5ff]"
+                    : "text-[#6d758c] hover:text-[#dee5ff]"
+                }`}
+              >
+                {createElement(viewOption.icon, { className: "h-3.5 w-3.5" })}
+                {viewOption.label}
+              </button>
+            ))}
+          </div>
+
+          <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
+            {view === "lista" ? "Modo em lista" : "Modo em blocos"}
+          </span>
+        </div>
+
+        {filtered.length === 0 ? (
+          <section className="rounded-xl border border-[#40485d]/10 bg-[#0f1930] px-6 py-16 text-center">
+            <p className="font-['Manrope'] text-lg font-bold text-[#dee5ff]">
+              {search ? "Nenhum conteudo encontrado" : "Sem conteudos ainda"}
+            </p>
+            <p className="mt-2 text-sm text-[#a3aac4]">
+              {search ? "Tente outro termo na busca." : "Crie o primeiro bloco dessa tecnologia."}
+            </p>
+          </section>
+        ) : (
+          <div className={view === "blocos" ? "grid gap-5 md:grid-cols-2 xl:grid-cols-3" : "space-y-4"}>
+            {filtered.map((content) => {
+              if (view === "blocos") {
+                return (
+                  <BlockCard
+                    key={content.id}
+                    content={content}
+                    onDelete={confirmDelete}
+                    onOpen={openEditor}
+                  />
+                );
+              }
+
+              return (
+                <ListCard
+                  key={content.id}
+                  content={content}
+                  onDelete={confirmDelete}
+                  onOpen={openEditor}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        <ConfirmDeleteModal
+          isOpen={deleteModal.open}
+          onClose={() => setDeleteModal({ open: false, item: null })}
+          onConfirm={handleDelete}
+          title={deleteModal.item?.title}
+        />
+      </main>
+    </div>
   );
 }

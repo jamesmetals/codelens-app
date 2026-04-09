@@ -1,44 +1,57 @@
-import { useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowLeft, BookOpen, MessageSquareText, Save, Wand2,
-  TerminalSquare, Sparkles, Loader2, X
+  ArrowLeft,
+  BookMarked,
+  ChevronLeft,
+  ChevronRight,
+  Code2,
+  Loader2,
+  MessageSquareText,
+  Save,
+  Sparkles,
+  Wand2,
+  X,
 } from "lucide-react";
+
 import DynamicEditor from "./DynamicEditor";
 
-// ─── Geração de Resumo ────────────────────────────────────────────────────────
-// Em produção: chama a Vercel Serverless Function `/api/generate-summary`.
-// Em dev local: usa VITE_GROQ_API_KEY do .env (key só no servidor de dev, não vai ao bundle).
 async function fetchSummary(title, code) {
-  // Fallback para desenvolvimento local com Vite
   if (import.meta.env.DEV && import.meta.env.VITE_GROQ_API_KEY) {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: "llama-3.3-70b-versatile",
         messages: [
-          { role: 'system', content: 'Você é um assistente técnico de estudos. Responda SEMPRE em português brasileiro. Seja objetivo e técnico.' },
-          { role: 'user', content: `Escreva um resumo técnico e objetivo de 1 a 2 frases.\nTítulo: "${title}"\nConteúdo:\n${code.slice(0, 3000)}\n\nResponda APENAS com o texto do resumo, sem prefixos.` },
+          {
+            role: "system",
+            content: "Voce e um assistente tecnico de estudos. Responda sempre em portugues brasileiro. Seja objetivo e tecnico.",
+          },
+          {
+            role: "user",
+            content: `Escreva um resumo tecnico e objetivo de 1 a 2 frases.\nTitulo: "${title}"\nConteudo:\n${code.slice(0, 3000)}\n\nResponda apenas com o texto do resumo, sem prefixos.`,
+          },
         ],
         max_tokens: 200,
         temperature: 0.4,
       }),
     });
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err?.error?.message || `Erro ${res.status}`);
     }
+
     const data = await res.json();
-    return data.choices?.[0]?.message?.content?.trim() ?? '';
+    return data.choices?.[0]?.message?.content?.trim() ?? "";
   }
 
-  // Produção: chama a Vercel Serverless Function (key segura no servidor)
-  const res = await fetch('/api/generate-summary', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const res = await fetch("/api/generate-summary", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, code }),
   });
 
@@ -48,11 +61,119 @@ async function fetchSummary(title, code) {
   }
 
   const data = await res.json();
-  return data.summary ?? '';
+  return data.summary ?? "";
 }
 
-// ─── StudyRoom ────────────────────────────────────────────────────────────────
-export default function StudyRoom({ activeTechnology, activeLesson, onBack, onOpenDevBrief, onUpdateContent }) {
+function GoogleMark({ className = "" }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M21.805 10.023H12.24v3.955h5.478c-.236 1.274-.955 2.353-2.032 3.079v2.56h3.294c1.929-1.776 3.04-4.395 3.04-7.305 0-.691-.06-1.363-.215-2.289Z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12.24 22c2.743 0 5.045-.907 6.727-2.383l-3.294-2.56c-.907.611-2.068.974-3.433.974-2.652 0-4.903-1.79-5.711-4.2H3.131v2.64A10.16 10.16 0 0 0 12.24 22Z"
+        fill="#34A853"
+      />
+      <path
+        d="M6.529 13.83a6.107 6.107 0 0 1 0-3.858V7.332H3.131a10.16 10.16 0 0 0 0 9.139l3.398-2.64Z"
+        fill="#FBBC04"
+      />
+      <path
+        d="M12.24 5.79c1.494 0 2.82.514 3.865 1.523l2.897-2.897C17.28 2.81 14.979 2 12.24 2A10.16 10.16 0 0 0 3.131 7.332l3.398 2.64c.808-2.41 3.06-4.182 5.711-4.182Z"
+        fill="#EA4335"
+      />
+    </svg>
+  );
+}
+
+function getAvatarUrl(authUser) {
+  return String(
+    authUser?.user_metadata?.avatar_url
+      || authUser?.user_metadata?.picture
+      || authUser?.user_metadata?.photo_url
+      || "",
+  ).trim();
+}
+
+function getAvatarFallback(authUser) {
+  const source = String(
+    authUser?.user_metadata?.full_name
+      || authUser?.user_metadata?.name
+      || authUser?.email
+      || "C",
+  ).trim();
+
+  return source.charAt(0).toUpperCase() || "C";
+}
+
+function NoteCard({ note, onHighlight, onTextChange }) {
+  const hasSpan = Boolean(note.spanId);
+
+  return (
+    <article
+      className={`overflow-hidden rounded-xl border bg-[#141f38] transition-colors ${
+        note.isNew ? "border-white/20" : "border-[#40485d]/20"
+      }`}
+    >
+      <div className={`h-1 w-full ${note.led?.bg || "bg-slate-500"}`} />
+
+      <div className="p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <span className="rounded bg-black/20 px-2 py-1 font-['Manrope'] text-[10px] uppercase tracking-[0.18em] text-[#6d758c]">
+            {note.time}
+          </span>
+
+          {hasSpan ? (
+            <button
+              type="button"
+              onClick={onHighlight}
+              className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.16em] text-[#69daff] transition-colors hover:text-white"
+            >
+              Ver no codigo
+            </button>
+          ) : null}
+        </div>
+
+        {note.codeSnippet ? (
+          <button
+            type="button"
+            onClick={onHighlight}
+            className={`mb-3 block w-full rounded-lg border bg-[#060e20] p-3 text-left ${note.led?.border || "border-white/10"}`}
+          >
+            <pre className={`whitespace-pre-wrap font-mono text-[11px] leading-6 ${note.led?.text || "text-slate-200"}`}>
+              {note.codeSnippet}
+            </pre>
+          </button>
+        ) : null}
+
+        <textarea
+          value={note.content}
+          onChange={(event) => onTextChange(note.id, event.target.value)}
+          placeholder="Suas conclusoes sobre esse trecho..."
+          className="min-h-[72px] w-full resize-none rounded-lg border border-[#40485d]/20 bg-[#060e20] p-3 text-sm text-[#dee5ff] placeholder:text-[#6d758c] focus:border-[#69daff]/40 focus:outline-none"
+        />
+      </div>
+    </article>
+  );
+}
+
+export default function StudyRoom({
+  activeTechnology,
+  activeLesson,
+  authUser,
+  onBack,
+  onOpenAccount,
+  onOpenDevBrief,
+  onSignInWithGoogle,
+  onUpdateContent,
+  supabaseConfigured,
+}) {
   const [localTitle, setLocalTitle] = useState(activeLesson?.title || "");
   const [localSummary, setLocalSummary] = useState(activeLesson?.summary || "");
   const [currentCode, setCurrentCode] = useState(activeLesson?.fullCode || "");
@@ -60,24 +181,42 @@ export default function StudyRoom({ activeTechnology, activeLesson, onBack, onOp
   const [activeSpanId, setActiveSpanId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState("");
-
-  // IA state
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [notesCollapsed, setNotesCollapsed] = useState(false);
+
+  const isLogged = Boolean(authUser);
+  const avatarUrl = getAvatarUrl(authUser);
+
+  useEffect(() => {
+    setLocalTitle(activeLesson?.title || "");
+    setLocalSummary(activeLesson?.summary || "");
+    setCurrentCode(activeLesson?.fullCode || "");
+    setNotes(activeLesson?.studyNotes || []);
+    setActiveSpanId(null);
+    setSaveFeedback("");
+    setAiError("");
+  }, [activeLesson]);
 
   const handleSave = async () => {
     setIsSaving(true);
     setSaveFeedback("");
+
     try {
       const result = await onUpdateContent({
-        ...activeLesson,
+        ...(activeLesson || {}),
         title: localTitle,
         summary: localSummary,
         fullCode: currentCode,
         studyNotes: notes,
-        highlights: notes.map((n) => n.codeSnippet).filter(Boolean).slice(0, 3),
+        highlights: notes.map((note) => note.codeSnippet).filter(Boolean).slice(0, 3),
       });
-      setSaveFeedback(result?.location === "cloud" ? "Salvo na sua conta Google." : "Salvo localmente neste dispositivo.");
+
+      setSaveFeedback(
+        result?.location === "cloud"
+          ? "Salvo na sua conta Google."
+          : "Salvo localmente neste dispositivo.",
+      );
     } catch (error) {
       setSaveFeedback(error.message || "Falha ao salvar o conteudo.");
     } finally {
@@ -87,23 +226,25 @@ export default function StudyRoom({ activeTechnology, activeLesson, onBack, onOp
 
   const handleGenerateSummary = async () => {
     if (!currentCode.trim() && !localTitle.trim()) {
-      setAiError("Adicione algum conteúdo ou título antes de gerar.");
+      setAiError("Adicione algum conteudo ou titulo antes de gerar.");
       return;
     }
+
     setIsGenerating(true);
     setAiError("");
+
     try {
       const summary = await fetchSummary(localTitle, currentCode || localTitle);
       setLocalSummary(summary);
-    } catch (e) {
-      setAiError(e.message || "Erro ao gerar resumo.");
+    } catch (error) {
+      setAiError(error.message || "Erro ao gerar resumo.");
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleAddAnnotation = useCallback((textSnippet, ledColor, spanId) => {
-    setNotes((prev) => [
+    setNotes((current) => [
       {
         id: Date.now(),
         spanId,
@@ -113,14 +254,15 @@ export default function StudyRoom({ activeTechnology, activeLesson, onBack, onOp
         led: ledColor,
         isNew: true,
       },
-      ...prev,
+      ...current,
     ]);
   }, []);
 
-  const updateNoteText = (id, newText) =>
-    setNotes((prev) =>
-      prev.map((note) => (note.id === id ? { ...note, content: newText, isNew: false } : note))
-    );
+  const updateNoteText = (id, newText) => {
+    setNotes((current) => current.map((note) => (
+      note.id === id ? { ...note, content: newText, isNew: false } : note
+    )));
+  };
 
   const handleNoteClick = (spanId) => {
     setActiveSpanId(null);
@@ -128,237 +270,238 @@ export default function StudyRoom({ activeTechnology, activeLesson, onBack, onOp
   };
 
   return (
-    <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-[#06111f] animate-fade-in relative z-10 w-full">
+    <div className="relative min-h-screen bg-[#060e20] text-[#dee5ff]">
+      <div className="fixed inset-0 bg-[#060e20]" />
 
-      {/* ── Navbar ── */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-[#0B1D35]/50 backdrop-blur-md shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-[#40485d]/10 bg-[#060e20]/85 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
           <button
+            type="button"
             onClick={onBack}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#40485d]/20 bg-[#141f38] text-[#a3aac4] transition-colors hover:text-white"
+            aria-label="Voltar"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
 
-          <div className="flex items-center gap-3 border-l border-white/10 pl-4">
-            <BookOpen className="h-5 w-5 text-sky-400" />
-            <div>
-              <p className="text-sm font-semibold text-white truncate max-w-[320px]">
-                {localTitle || "Sem título"}
-              </p>
-              <p className="text-[10px] uppercase tracking-wider text-slate-400">
-                {activeTechnology.name} Bootcamp
-              </p>
-            </div>
+          <div className="hidden h-10 w-px bg-[#40485d]/20 sm:block" />
+
+          <BookMarked className="hidden h-5 w-5 text-[#69daff] sm:block" />
+
+          <div className="min-w-0">
+            <p className="truncate font-['Manrope'] text-lg font-bold text-[#dee5ff]">
+              {localTitle || "Sem titulo"}
+            </p>
+            <p className="mt-1 font-['Manrope'] text-[10px] uppercase tracking-[0.24em] text-[#a3aac4]">
+              Biblioteca {activeTechnology?.name || "Tecnologia"}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-x-3 sm:gap-x-4">
           {saveFeedback ? (
-            <p className="hidden text-[11px] text-slate-400 sm:block">{saveFeedback}</p>
+            <p className="hidden max-w-[220px] truncate text-xs text-[#a3aac4] xl:block">
+              {saveFeedback}
+            </p>
           ) : null}
 
           <button
+            type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 px-3 py-1.5 rounded-lg font-medium text-xs hover:bg-emerald-500/20 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 font-['Manrope'] text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {isSaving ? "Salvando..." : "Salvar"}
           </button>
 
           <button
+            type="button"
             onClick={() => onOpenDevBrief(currentCode)}
-            className="flex items-center gap-2 bg-gradient-to-r from-sky-500/20 to-sky-400/10 border border-sky-400/30 text-sky-300 px-4 py-1.5 rounded-full font-medium text-sm hover:bg-sky-500/30 transition-colors"
+            className="hidden items-center gap-2 rounded-full border border-[#69daff]/30 bg-[#69daff]/10 px-4 py-2 font-['Manrope'] text-sm font-bold text-[#69daff] transition-colors hover:bg-[#69daff]/20 sm:inline-flex"
           >
             <Wand2 className="h-4 w-4" />
-            Análise Assistida
+            Analise Assistida
           </button>
+
+          {isLogged ? (
+            <button
+              type="button"
+              onClick={onOpenAccount}
+              className="h-8 w-8 overflow-hidden rounded-full border border-[#40485d]/30"
+              aria-label="Abrir conta"
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt="Avatar da conta"
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center bg-[#141f38] text-xs font-semibold text-[#dee5ff]">
+                  {getAvatarFallback(authUser)}
+                </span>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onSignInWithGoogle}
+              disabled={!supabaseConfigured}
+              className="inline-flex items-center gap-2 rounded-md border border-[#40485d]/30 bg-[#141f38] px-3 py-2 font-['Manrope'] text-xs font-bold text-[#dee5ff] transition-colors hover:border-[#69daff]/40 hover:text-[#69daff] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <GoogleMark className="h-4 w-4" />
+              Entrar com Google
+            </button>
+          )}
         </div>
       </header>
 
-      {/* ── Área Principal ── */}
-      <main className="flex-1 flex overflow-hidden">
+      <main className="relative z-10 min-h-screen bg-[#060e20] px-4 pb-10 pt-20 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+          <div className="min-w-0 flex-1 space-y-6">
+            <section className="rounded-xl border border-[#40485d]/10 bg-[#0f1930] p-6">
+              <div className="space-y-5">
+                <div>
+                  <div className="mb-2 flex items-center justify-between gap-4">
+                    <label className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
+                      Titulo do conteudo
+                    </label>
+                    <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#69daff]">
+                      Essencial
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    value={localTitle}
+                    onChange={(event) => setLocalTitle(event.target.value)}
+                    className="w-full rounded-lg border border-[#40485d]/20 bg-black/20 px-4 py-3 text-sm text-[#dee5ff] placeholder:text-[#6d758c] focus:border-[#69daff]/40 focus:outline-none"
+                  />
+                </div>
 
-        {/* Painel Esquerdo: Metadados + Editor */}
-        <div className="flex-1 flex flex-col border-r border-white/10 bg-[#040D17] overflow-hidden min-w-0">
+                <div>
+                  <div className="mb-2 flex items-center justify-between gap-4">
+                    <label className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
+                      Resumo
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateSummary}
+                      disabled={isGenerating}
+                      className="inline-flex items-center gap-2 font-['Manrope'] text-[11px] font-bold text-[#69daff] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isGenerating ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      {isGenerating ? "Gerando..." : "Gerar resumo com IA"}
+                    </button>
+                  </div>
 
-          {/* ── Seção de Metadados ─────────────────────────────────────── */}
-          <div className="shrink-0 px-6 pt-5 pb-4 border-b border-white/5 bg-[#05101e] space-y-4">
+                  <textarea
+                    value={localSummary}
+                    onChange={(event) => setLocalSummary(event.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-[#40485d]/20 bg-black/20 px-4 py-3 text-sm leading-7 text-[#dee5ff] placeholder:text-[#6d758c] focus:border-[#69daff]/40 focus:outline-none"
+                  />
 
-            {/* Título */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">
-                  Título do Conteúdo
-                </label>
-                <span className="text-[10px] text-sky-500 font-medium">Essencial</span>
+                  {aiError ? (
+                    <p className="mt-2 inline-flex items-center gap-2 text-xs text-rose-300">
+                      <X className="h-3.5 w-3.5" />
+                      {aiError}
+                    </p>
+                  ) : null}
+                </div>
               </div>
-              <input
-                type="text"
-                value={localTitle}
-                onChange={(e) => setLocalTitle(e.target.value)}
-                placeholder="Ex: useEffect e o ciclo de sincronização"
-                className="w-full bg-black/30 border border-white/8 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-sky-500/40 focus:bg-black/50 transition-all"
-              />
-            </div>
+            </section>
 
-            {/* Resumo */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">
-                  Resumo
-                </label>
-                <button
-                  onClick={handleGenerateSummary}
-                  disabled={isGenerating}
-                  className="flex items-center gap-1.5 text-[11px] text-sky-400 hover:text-sky-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors group"
-                >
-                  {isGenerating ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3 w-3 group-hover:scale-110 transition-transform" />
-                  )}
-                  {isGenerating ? "Gerando..." : "Gerar resumo com IA"}
-                </button>
+            <section className="overflow-hidden rounded-xl border border-[#40485d]/10 bg-[#0f1930]">
+              <div className="flex items-center justify-between border-b border-[#40485d]/10 bg-[#091328] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-[#a3aac4]" />
+                  <span className="font-mono text-[11px] text-[#a3aac4]">editor</span>
+                </div>
+
+                <span className="hidden text-[10px] italic text-[#6d758c] lg:block">
+                  Selecione qualquer trecho para criar uma anotacao vinculada
+                </span>
               </div>
 
-              <textarea
-                value={localSummary}
-                onChange={(e) => setLocalSummary(e.target.value)}
-                placeholder="Uma síntese do que você aprendeu neste bloco..."
-                rows={3}
-                className="w-full bg-black/30 border border-white/8 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 resize-none focus:outline-none focus:border-sky-500/40 focus:bg-black/50 transition-all custom-scrollbar"
-              />
-
-              {aiError && (
-                <p className="text-xs text-rose-400 mt-1 flex items-center gap-1">
-                  <X className="h-3 w-3" /> {aiError}
-                </p>
-              )}
-            </div>
+              <div className="h-[calc(100vh-23rem)] min-h-[420px]">
+                <DynamicEditor
+                  initialContent={currentCode}
+                  onAddSelection={handleAddAnnotation}
+                  onChange={setCurrentCode}
+                  highlightSpanId={activeSpanId}
+                />
+              </div>
+            </section>
           </div>
 
-          {/* ── Editor ─────────────────────────────────────────────────── */}
-          <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-white/5 shrink-0">
-            <div className="flex items-center gap-2">
-              <TerminalSquare className="h-3.5 w-3.5 text-slate-500" />
-              <span className="text-[11px] font-mono text-slate-400">editor</span>
-            </div>
-            <span className="text-[10px] text-slate-600 italic">
-              Selecione qualquer trecho para criar uma anotação vinculada
-            </span>
-          </div>
+          <aside className={`order-last shrink-0 xl:sticky xl:top-20 xl:h-[calc(100vh-6.5rem)] ${notesCollapsed ? "xl:w-20" : "xl:w-[340px]"}`}>
+            <section className="flex h-full overflow-hidden rounded-xl border border-[#40485d]/10 bg-[#0f1930]">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex items-center gap-3 border-b border-[#40485d]/10 bg-[#091328] px-5 py-4">
+                  <MessageSquareText className="h-4 w-4 text-[#a3aac4]" />
+                  {!notesCollapsed ? (
+                    <h3 className="font-['Manrope'] text-lg font-bold text-[#dee5ff]">
+                      Anotacoes conectadas
+                    </h3>
+                  ) : null}
+                  {notes.length ? (
+                    <span className={`${notesCollapsed ? "" : "ml-auto"} rounded bg-black/20 px-2 py-1 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.16em] text-[#a3aac4]`}>
+                      {notes.length}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setNotesCollapsed((current) => !current)}
+                    className={`${notesCollapsed ? "ml-auto" : ""} inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#40485d]/20 bg-[#141f38] text-[#a3aac4] transition-colors hover:text-white`}
+                    aria-label={notesCollapsed ? "Expandir anotacoes" : "Recolher anotacoes"}
+                  >
+                    {notesCollapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </button>
+                </div>
 
-          <div className="flex-1 overflow-hidden relative min-h-0">
-            <DynamicEditor
-              initialContent={currentCode}
-              onAddSelection={handleAddAnnotation}
-              onChange={setCurrentCode}
-              highlightSpanId={activeSpanId}
-            />
-            <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-sky-500/5 blur-[120px] pointer-events-none rounded-full" />
-          </div>
+                {!notesCollapsed ? (
+                  <div className="custom-scrollbar flex-1 overflow-y-auto p-4">
+                    {notes.length ? (
+                      <div className="space-y-4">
+                        {notes.map((note) => (
+                          <NoteCard
+                            key={note.id}
+                            note={note}
+                            onHighlight={() => note.spanId && handleNoteClick(note.spanId)}
+                            onTextChange={updateNoteText}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-4 text-center">
+                        <MessageSquareText className="h-10 w-10 text-[#40485d]" />
+                        <p className="max-w-[220px] text-sm leading-6 text-[#6d758c]">
+                          Selecione no editor ao lado para criar anotacoes conectadas.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-1 items-center justify-center bg-[#0f1930]">
+                    <div className="flex flex-col items-center gap-3 px-3 text-center">
+                      <MessageSquareText className="h-5 w-5 text-[#6d758c]" />
+                      <span className="font-['Manrope'] text-[10px] uppercase tracking-[0.22em] text-[#6d758c] [writing-mode:vertical-rl] [text-orientation:mixed]">
+                        Anotacoes
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          </aside>
         </div>
-
-        {/* ── Painel de Anotações ──────────────────────────────────────── */}
-        <aside className="w-[330px] shrink-0 bg-[#0B1D35]/30 flex flex-col shadow-[-10px_0_30px_rgba(0,0,0,0.2)]">
-          <div className="p-4 border-b border-white/5 bg-black/20 flex items-center gap-2 shrink-0">
-            <MessageSquareText className="h-4 w-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-200">Anotações Conectadas</h3>
-            {notes.length > 0 && (
-              <span className="ml-auto text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">
-                {notes.length}
-              </span>
-            )}
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
-            {notes.map((note) => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                onTextChange={updateNoteText}
-                onHighlight={() => note.spanId && handleNoteClick(note.spanId)}
-              />
-            ))}
-
-            {notes.length === 0 && (
-              <div className="text-center p-8 opacity-40 flex flex-col items-center gap-3">
-                <TerminalSquare className="h-8 w-8 text-slate-400" />
-                <p className="text-xs text-slate-400">
-                  Selecione no código ao lado para começar anotar.
-                </p>
-              </div>
-            )}
-          </div>
-        </aside>
       </main>
-    </div>
-  );
-}
-
-// ─── NoteCard ─────────────────────────────────────────────────────────────────
-function NoteCard({ note, onTextChange, onHighlight }) {
-  const hasSpan = Boolean(note.spanId);
-
-  return (
-    <div
-      className={`bg-white/5 border rounded-xl overflow-hidden transition-all duration-300 group/card ${
-        note.isNew ? "ring-1 ring-white/20 border-white/20" : "border-white/10"
-      }`}
-    >
-      <div className={`h-1 w-full ${note.led?.bg || "bg-slate-500"}`} />
-
-      <div className="p-3">
-        <div className="flex justify-between items-center mb-2">
-          <p className="text-[9px] uppercase tracking-wider text-slate-500 bg-black/40 px-2 py-0.5 rounded-sm">
-            {note.time}
-          </p>
-          <div className="flex items-center gap-1.5">
-            {hasSpan && (
-              <button
-                onClick={onHighlight}
-                title="Destacar trecho no editor"
-                className="opacity-0 group-hover/card:opacity-100 flex items-center gap-1 text-[9px] text-slate-400 hover:text-sky-300 transition-all px-1.5 py-0.5 rounded bg-white/5 hover:bg-sky-500/10 border border-transparent hover:border-sky-500/30"
-              >
-                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                ver no código
-              </button>
-            )}
-            <div className={`w-2 h-2 rounded-full ${note.led?.bg} ${note.isNew ? "animate-pulse" : ""}`} />
-          </div>
-        </div>
-
-        {note.codeSnippet && (
-          <div
-            onClick={onHighlight}
-            className={`bg-[#030912] border rounded-lg p-2.5 mb-2.5 ${note.led?.border || "border-white/5"} ${
-              hasSpan ? "cursor-pointer hover:border-opacity-80 transition-colors" : ""
-            }`}
-            title={hasSpan ? "Clique para destacar no editor" : ""}
-          >
-            <pre
-              className={`font-mono whitespace-pre-wrap text-[11px] leading-relaxed ${
-                note.led?.text || "text-slate-300"
-              }`}
-            >
-              {note.codeSnippet}
-            </pre>
-          </div>
-        )}
-
-        <textarea
-          value={note.content}
-          onChange={(e) => onTextChange(note.id, e.target.value)}
-          placeholder="Suas conclusões sobre esse código..."
-          className="w-full text-xs text-slate-200 bg-transparent border-none resize-none focus:ring-0 focus:outline-none p-0 custom-scrollbar placeholder:text-slate-600"
-          rows={note.content ? undefined : 2}
-          style={{ minHeight: "2.5rem" }}
-        />
-      </div>
     </div>
   );
 }

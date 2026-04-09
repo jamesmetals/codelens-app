@@ -13,9 +13,7 @@ import {
   readStoredTechs,
   writeStoredTechs,
 } from "./studySync";
-import Header from "./components/home/Header";
-import HeroSection from "./components/home/HeroSection";
-import { TechnologySpotlight } from "./components/home/HomeWidgets";
+import DashboardHome from "./components/home/DashboardHome";
 import TechnologyModal from "./components/home/TechnologyModal";
 import DevBriefPanel from "./components/devbrief/DevBriefPanel";
 import StudyRoom from "./components/study/StudyRoom";
@@ -24,8 +22,8 @@ import AccountPanel from "./components/auth/AccountPanel";
 
 function App() {
   const [authUser, setAuthUser] = useState(null);
-  const [authChecked, setAuthChecked] = useState(!supabaseConfigured);
-  const [authError, setAuthError] = useState("");
+  const [, setAuthChecked] = useState(!supabaseConfigured);
+  const [, setAuthError] = useState("");
   const [syncNotice, setSyncNotice] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState("");
   const [showAccountPanel, setShowAccountPanel] = useState(false);
@@ -223,6 +221,8 @@ function App() {
             ...tech,
             name: nextName,
             image: sanitizedImage,
+            category: tech.category || "Minhas tecnologias",
+            categoryAccent: tech.categoryAccent || "Conteúdos organizados",
           }
           : tech
       ));
@@ -241,6 +241,8 @@ function App() {
       id: createTechnologyId(nextName),
       name: nextName,
       image: sanitizedImage,
+      category: "Minhas tecnologias",
+      categoryAccent: "Conteúdos organizados",
       progress: 0,
       lessons: 0,
       aiSessions: 0,
@@ -471,95 +473,56 @@ function App() {
 
   return (
     <div className="app-shell">
-      {/* Background Elements */}
-      <div className="hero-orb orb-left" />
-      <div className="hero-orb orb-right" />
-      <div className="noise-layer" />
-
-      <Header
-        authUser={authUser}
-        onOpenAccount={() => setShowAccountPanel(true)}
-        onSignInWithGoogle={handleSignInWithGoogle}
-        supabaseConfigured={supabaseConfigured}
-        syncNotice={syncNotice}
-      />
-
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 pb-14 sm:px-6 lg:px-8">
-        {!supabaseConfigured ? (
-          <section className="soft-panel mt-5 flex items-start gap-3 border border-amber-500/10 bg-amber-500/5 p-4 text-sm text-amber-100">
-            <div className="mt-0.5 h-2 w-2 rounded-full bg-amber-400" />
-            <div>
-              <p className="font-semibold">Login Google e nuvem ainda desligados neste ambiente</p>
-              <p className="mt-1 text-amber-100/80">
-                Defina `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_AUTH_REDIRECT_URL` para liberar o sync entre dispositivos.
-              </p>
-            </div>
-          </section>
-        ) : null}
-
-        {authChecked && authError ? (
-          <section className="soft-panel mt-5 flex items-start gap-3 border border-rose-500/10 bg-rose-500/5 p-4 text-sm text-rose-100">
-            <div className="mt-0.5 h-2 w-2 rounded-full bg-rose-400" />
-            <div>
-              <p className="font-semibold">Camada de login/sync com alerta</p>
-              <p className="mt-1 text-rose-100/80">{authError}</p>
-            </div>
-          </section>
-        ) : null}
-
-        {authChecked && syncNotice ? (
-          <section className="soft-panel mt-5 flex items-start gap-3 border border-sky-500/10 bg-sky-500/5 p-4 text-sm text-sky-100">
-            <div className="mt-0.5 h-2 w-2 rounded-full bg-sky-400" />
-            <div>
-              <p className="font-semibold">{authUser ? "Conta Google conectada" : "Modo local"}</p>
-              <p className="mt-1 text-sky-100/80">{syncNotice}</p>
-            </div>
-          </section>
-        ) : null}
-
-        {currentView === "home" && (
-          <>
-            <HeroSection />
-
-            <section className="grid gap-6">
-              <TechnologySpotlight
-                technologies={techList}
-                activeTechnology={activeTechnology}
-                setActiveTechnology={setActiveTechnology}
-                onCreateTechnology={openCreateTechnologyModal}
-                onEditTechnology={openEditTechnologyModal}
-                onSelectTechnology={(technology) => {
-                  setActiveTechnology(technology);
-                  setCurrentView("tech-list");
-                }}
-              />
-            </section>
-          </>
-        )}
-      </main>
+      {currentView === "home" ? (
+        <DashboardHome
+          authUser={authUser}
+          onCreateTechnology={openCreateTechnologyModal}
+          onEditTechnology={openEditTechnologyModal}
+          onOpenAccount={() => setShowAccountPanel(true)}
+          onSelectTechnology={(technology) => {
+            setActiveTechnology(technology);
+            setCurrentView("tech-list");
+          }}
+          onSignInWithGoogle={handleSignInWithGoogle}
+          setActiveTechnology={setActiveTechnology}
+          supabaseConfigured={supabaseConfigured}
+          technologies={techList}
+        />
+      ) : null}
 
       {currentView === "tech-list" && (
         <TechnologyContentsList 
+           key={activeTechnology?.id || "tech-list"}
            activeTechnology={activeTechnology}
-           onBack={() => setCurrentView("home")}
+           authUser={authUser}
+            onBack={() => setCurrentView("home")}
+           onEditTechnology={openEditTechnologyModal}
+           onOpenAccount={() => setShowAccountPanel(true)}
            onOpenStudyRoom={(lesson) => {
              setActiveLesson(lesson);
              setCurrentView("study");
            }}
+           onSignInWithGoogle={handleSignInWithGoogle}
+           supabaseConfigured={supabaseConfigured}
         />
       )}
 
       {currentView === "study" && (
         <StudyRoom 
+          key={activeLesson?.id || "study-room"}
           activeTechnology={activeTechnology}
           activeLesson={activeLesson}
+          authUser={authUser}
           onBack={() => setCurrentView("tech-list")}
+          onOpenAccount={() => setShowAccountPanel(true)}
           onOpenDevBrief={(code) => {
             setContextCode(code);
             setDevBriefSeed((current) => current + 1);
             setIsDevBriefOpen(true);
           }}
+          onSignInWithGoogle={handleSignInWithGoogle}
           onUpdateContent={(updated) => handleUpdateContent(activeTechnology.id, updated)}
+          supabaseConfigured={supabaseConfigured}
         />
       )}
 
