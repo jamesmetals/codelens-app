@@ -28,6 +28,16 @@ function getMetadataStorageKey(storageKey) {
   return `${storageKey}__meta`;
 }
 
+function getTechnologyTemplate(technology) {
+  const technologyId = String(technology?.id || "").trim().toLowerCase();
+  const technologyName = String(technology?.name || "").trim().toLowerCase();
+
+  return technologies.find((item) => (
+    String(item?.id || "").trim().toLowerCase() === technologyId
+    || String(item?.name || "").trim().toLowerCase() === technologyName
+  )) || null;
+}
+
 function normalizeTechnologyImage(image) {
   if (!image?.src) return null;
 
@@ -113,20 +123,41 @@ function buildTechnologyMeta(techList) {
 }
 
 function normalizeTechnology(technology, index = 0) {
-  const name = String(technology?.name || "").trim() || `Tecnologia ${index + 1}`;
-  const contents = normalizeArray(technology?.contents);
+  const template = getTechnologyTemplate(technology);
+  const rawName = String(technology?.name || template?.name || "").trim();
+  const name = rawName || `Tecnologia ${index + 1}`;
+  const rawContents = Array.isArray(technology?.contents) ? technology.contents : template?.contents;
+  const contents = normalizeArray(rawContents);
   const normalizedLessons = Number(technology?.lessons);
-  const category = String(technology?.category || "").trim() || "Minhas tecnologias";
-  const categoryAccent = String(technology?.categoryAccent || "").trim() || "Conteúdos organizados";
+  const rawCategory = String(technology?.category || "").trim();
+  const rawCategoryAccent = String(technology?.categoryAccent || "").trim();
+  const rawCardLabel = String(technology?.cardLabel || "").trim();
+  const rawCardTone = String(technology?.cardTone || "").trim();
+  const rawCardBarClass = String(technology?.cardBarClass || "").trim();
+  const genericCategory = rawCategory === "Minhas tecnologias";
+  const genericAccent = rawCategoryAccent === "Conteudos organizados" || rawCategoryAccent === "Conteúdos organizados" || rawCategoryAccent === "ConteÃºdos organizados";
 
   return {
+    ...cloneValue(template || {}),
     ...cloneValue(technology || {}),
-    id: String(technology?.id || slugify(name) || `tecnologia-${index + 1}`),
+    id: String(technology?.id || template?.id || slugify(name) || `tecnologia-${index + 1}`),
     name,
-    category,
-    categoryAccent,
-    image: normalizeTechnologyImage(technology?.image),
+    category: template && (!rawCategory || genericCategory)
+      ? template.category
+      : (rawCategory || template?.category || "Minhas tecnologias"),
+    categoryAccent: template && (!rawCategoryAccent || genericAccent)
+      ? template.categoryAccent
+      : (rawCategoryAccent || template?.categoryAccent || "Conteudos organizados"),
+    image: normalizeTechnologyImage(technology?.image) || normalizeTechnologyImage(template?.image),
+    cardLabel: rawCardLabel || template?.cardLabel,
+    cardTone: rawCardTone || template?.cardTone,
+    cardBarClass: rawCardBarClass || template?.cardBarClass,
+    progress: Number.isFinite(Number(technology?.progress)) ? Number(technology.progress) : template?.progress,
     lessons: Number.isFinite(normalizedLessons) ? normalizedLessons : contents.length,
+    aiSessions: Number.isFinite(Number(technology?.aiSessions)) ? Number(technology.aiSessions) : template?.aiSessions,
+    currentLesson: String(technology?.currentLesson || "").trim() || template?.currentLesson || "",
+    nextFocus: String(technology?.nextFocus || "").trim() || template?.nextFocus || "",
+    note: String(technology?.note || "").trim() || template?.note || "",
     contents,
   };
 }
@@ -194,6 +225,7 @@ export function writeStoredTechs(storageKey, techList) {
   const normalized = normalizeTechnologies(techList);
   const raw = JSON.stringify(normalized);
   const metadataRaw = JSON.stringify(buildTechnologyMeta(normalized));
+
   localStorage.setItem(storageKey, raw);
   localStorage.setItem(getMetadataStorageKey(storageKey), metadataRaw);
   localStorage.setItem(getMetadataStorageKey(GUEST_STORAGE_KEY), metadataRaw);
@@ -219,7 +251,7 @@ export function mergeStudyEntries(entries, cachedTechs = []) {
       tech = normalizeTechnology({
         name: technologyName,
         category: "Minhas tecnologias",
-        categoryAccent: "Conteúdos organizados",
+        categoryAccent: "Conteudos organizados",
         image: null,
         progress: 0,
         lessons: 0,
