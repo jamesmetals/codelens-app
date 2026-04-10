@@ -237,6 +237,7 @@ export default function TechnologyModal({
   mode,
   technology,
   onClose,
+  onDelete,
   onSave,
 }) {
   const fileInputRef = useRef(null);
@@ -247,7 +248,9 @@ export default function TechnologyModal({
   const [error, setError] = useState("");
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isCropOpen, setIsCropOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const title = mode === "edit" ? "Editar tecnologia" : "Adicionar tecnologia";
   const actionLabel = mode === "edit" ? "Salvar alteracoes" : "Criar tecnologia";
@@ -261,8 +264,10 @@ export default function TechnologyModal({
     setUrlInput(nextState.urlInput);
     setError("");
     setIsSaving(false);
+    setIsDeleting(false);
     setIsLoadingImage(false);
     setIsCropOpen(false);
+    setIsDeleteConfirmOpen(false);
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -283,12 +288,17 @@ export default function TechnologyModal({
         return;
       }
 
+       if (isDeleteConfirmOpen) {
+        setIsDeleteConfirmOpen(false);
+        return;
+      }
+
       onClose();
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isCropOpen, onClose]);
+  }, [isOpen, isCropOpen, isDeleteConfirmOpen, onClose]);
 
   if (!isOpen) {
     return null;
@@ -372,6 +382,32 @@ export default function TechnologyModal({
     }
 
     setIsSaving(false);
+  };
+
+  const handleDelete = async () => {
+    if (!technology?.id || typeof onDelete !== "function") return;
+
+    setIsDeleting(true);
+    setError("");
+
+    try {
+      const result = await onDelete(technology);
+
+      if (!result?.ok) {
+        setError(result?.error || "Nao foi possivel excluir.");
+        setIsDeleting(false);
+        return;
+      }
+
+      setIsDeleteConfirmOpen(false);
+      onClose();
+    } catch (deleteError) {
+      setError(deleteError.message || "Nao foi possivel excluir.");
+      setIsDeleting(false);
+      return;
+    }
+
+    setIsDeleting(false);
   };
 
   return (
@@ -517,23 +553,39 @@ export default function TechnologyModal({
               ) : null}
             </main>
 
-            <footer className="flex items-center justify-end gap-3 bg-[#091328] px-6 py-5">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                Cancelar
-              </button>
+            <footer className="flex items-center justify-between gap-3 bg-[#091328] px-6 py-5">
+              <div>
+                {mode === "edit" ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsDeleteConfirmOpen(true)}
+                    disabled={isSaving || isDeleting}
+                    className="inline-flex items-center gap-2 rounded-lg border border-rose-400/20 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-200 transition-colors hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Excluir tecnologia
+                  </button>
+                ) : null}
+              </div>
 
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-sky-300 to-cyan-400 px-6 py-2.5 text-sm font-bold text-[#083445] shadow-[0_12px_32px_rgba(73,211,255,0.18)] transition-transform hover:scale-[1.01] disabled:cursor-wait disabled:opacity-70"
-              >
-                {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                {actionLabel}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSaving || isDeleting}
+                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-sky-300 to-cyan-400 px-6 py-2.5 text-sm font-bold text-[#083445] shadow-[0_12px_32px_rgba(73,211,255,0.18)] transition-transform hover:scale-[1.01] disabled:cursor-wait disabled:opacity-70"
+                >
+                  {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+                  {actionLabel}
+                </button>
+              </div>
             </footer>
           </form>
         </div>
@@ -549,6 +601,57 @@ export default function TechnologyModal({
             setIsCropOpen(false);
           }}
         />
+      ) : null}
+
+      {isDeleteConfirmOpen && mode === "edit" ? (
+        <div className="fixed inset-0 z-[145] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => !isDeleting && setIsDeleteConfirmOpen(false)}
+          />
+
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-xl border border-white/10 bg-[#0f1930] shadow-[0_32px_90px_rgba(0,0,0,0.55)]">
+            <header className="flex items-center gap-3 border-b border-white/8 bg-[#141f38] px-6 py-4">
+              <Trash2 className="h-5 w-5 text-rose-300" />
+              <h2 className="font-['Space_Grotesk'] text-lg font-semibold text-white">
+                Confirmar exclusao
+              </h2>
+            </header>
+
+            <div className="space-y-3 px-6 py-5 text-sm text-slate-300">
+              <p>
+                Deseja realmente excluir a tecnologia
+                {" "}
+                <span className="font-semibold text-white">{technology?.name || name || "selecionada"}</span>
+                ?
+              </p>
+              <p className="text-slate-500">
+                Os conteudos vinculados a ela tambem serao removidos.
+              </p>
+            </div>
+
+            <footer className="flex items-center justify-end gap-3 bg-[#091328] px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                disabled={isDeleting}
+                className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-2 rounded-lg border border-rose-400/20 bg-rose-500/15 px-4 py-2.5 text-sm font-bold text-rose-100 transition-colors hover:bg-rose-500/20 disabled:cursor-wait disabled:opacity-70"
+              >
+                {isDeleting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Excluir
+              </button>
+            </footer>
+          </div>
+        </div>
       ) : null}
     </>
   );

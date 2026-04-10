@@ -346,6 +346,47 @@ function App() {
     return { ok: true };
   };
 
+  const handleDeleteTechnology = async (technologyToDelete) => {
+    const targetTechnology = techList.find((tech) => tech.id === technologyToDelete?.id);
+
+    if (!targetTechnology) {
+      return { ok: false, error: "Tecnologia nao encontrada para exclusao." };
+    }
+
+    if (supabaseConfigured && supabase && authUser?.id) {
+      try {
+        setSyncNotice("Excluindo tecnologia na nuvem...");
+        const { error } = await runRemoteQuery(supabase
+          .from(supabaseStudyEntriesTable)
+          .delete()
+          .eq("user_id", authUser.id)
+          .eq("technology_name", targetTechnology.name));
+
+        if (error) throw error;
+        setLastSyncedAt(new Date().toISOString());
+        setAuthError("");
+      } catch (error) {
+        return { ok: false, error: getFriendlySyncError(error) };
+      }
+    }
+
+    const nextTechList = techList.filter((tech) => tech.id !== targetTechnology.id);
+    applyTechList(nextTechList);
+
+    if (activeTechnology?.id === targetTechnology.id) {
+      setActiveLesson(null);
+      setCurrentView("home");
+    }
+
+    setSyncNotice(
+      authUser
+        ? "Tecnologia excluida da sua conta Google."
+        : "Tecnologia excluida deste dispositivo.",
+    );
+
+    return { ok: true };
+  };
+
   /* eslint-disable react-hooks/exhaustive-deps -- auth bootstrap is intentionally mounted once. */
   useEffect(() => {
     if (!supabaseConfigured || !supabase) {
@@ -634,6 +675,7 @@ function App() {
         mode={technologyModal.mode}
         technology={technologyModal.technology}
         onClose={closeTechnologyModal}
+        onDelete={handleDeleteTechnology}
         onSave={handleSaveTechnology}
       />
 
