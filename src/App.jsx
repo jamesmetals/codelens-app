@@ -31,6 +31,7 @@ import TechnologyContentsList from "./components/home/TechnologyContentsList";
 import AccountPanel from "./components/auth/AccountPanel";
 
 function App() {
+  const REMOTE_SYNC_TIMEOUT_MS = 12000;
   const [authUser, setAuthUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(!supabaseConfigured);
   const [, setAuthError] = useState("");
@@ -94,13 +95,36 @@ function App() {
     setTechnologyModal((current) => ({ ...current, open: false }));
   };
 
+  const withRemoteTimeout = (builder) => {
+    if (!builder || typeof builder.abortSignal !== "function") return builder;
+    if (typeof AbortSignal === "undefined" || typeof AbortSignal.timeout !== "function") return builder;
+    return builder.abortSignal(AbortSignal.timeout(REMOTE_SYNC_TIMEOUT_MS));
+  };
+
+  const runRemoteQuery = async (builder) => {
+    const query = Promise.resolve(withRemoteTimeout(builder));
+    let timerId;
+
+    const timeout = new Promise((_, reject) => {
+      timerId = window.setTimeout(() => {
+        reject(new Error("Supabase request timeout"));
+      }, REMOTE_SYNC_TIMEOUT_MS);
+    });
+
+    try {
+      return await Promise.race([query, timeout]);
+    } finally {
+      window.clearTimeout(timerId);
+    }
+  };
+
   const syncRemoteTechnologies = async (userId, nextTechs) => {
     if (!supabaseConfigured || !supabase || !userId) return;
 
     const payload = nextTechs.map((technology, index) => createTechnologyMetadataPayload(userId, technology, index));
-    const { error } = await supabase
+    const { error } = await runRemoteQuery(supabase
       .from(supabaseStudyEntriesTable)
-      .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" });
+      .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" }));
 
     if (error) throw error;
   };
@@ -119,9 +143,9 @@ function App() {
         createStudyEntryPayload(user.id, technologyName, lesson),
       );
 
-      const { error } = await supabase
+      const { error } = await runRemoteQuery(supabase
         .from(supabaseStudyEntriesTable)
-        .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" });
+        .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" }));
 
       if (error) throw error;
     }
@@ -142,11 +166,11 @@ function App() {
     try {
       const cachedUserTechs = readStoredTechs(getStorageKey(user.id));
       let remoteEntries = [];
-      let { data, error } = await supabase
+      let { data, error } = await runRemoteQuery(supabase
         .from(supabaseStudyEntriesTable)
         .select("*")
         .eq("user_id", user.id)
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false }));
 
       if (error) throw error;
       remoteEntries = data || [];
@@ -156,11 +180,11 @@ function App() {
         const migrated = await migrateGuestStudyToCloud(user);
 
         if (migrated) {
-          ({ data, error } = await supabase
+          ({ data, error } = await runRemoteQuery(supabase
             .from(supabaseStudyEntriesTable)
             .select("*")
             .eq("user_id", user.id)
-            .order("updated_at", { ascending: false }));
+            .order("updated_at", { ascending: false })));
 
           if (error) throw error;
           remoteEntries = data || [];
@@ -239,11 +263,11 @@ function App() {
       ) {
         try {
           setSyncNotice("Atualizando o nome da tecnologia na nuvem...");
-          const { error } = await supabase
+          const { error } = await runRemoteQuery(supabase
             .from(supabaseStudyEntriesTable)
             .update({ technology_name: nextName })
             .eq("user_id", authUser.id)
-            .eq("technology_name", previousTechnology.name);
+            .eq("technology_name", previousTechnology.name));
 
           if (error) throw error;
 
@@ -266,22 +290,22 @@ function App() {
           : tech
       ));
 
+      applyTechList(nextTechList);
+
       if (supabaseConfigured && supabase && authUser?.id) {
         try {
           await syncRemoteTechnologies(authUser.id, nextTechList);
           setLastSyncedAt(new Date().toISOString());
           setAuthError("");
+          setSyncNotice("Tecnologia atualizada e alinhada com sua conta Google.");
         } catch (error) {
-          return { ok: false, error: getFriendlySyncError(error) };
+          setAuthError(getFriendlySyncError(error));
+          setSyncNotice("Tecnologia atualizada neste dispositivo. A nuvem nao respondeu agora.");
+          return { ok: true };
         }
+      } else {
+        setSyncNotice("Tecnologia atualizada neste dispositivo.");
       }
-
-      applyTechList(nextTechList);
-      setSyncNotice(
-        authUser
-          ? "Tecnologia atualizada e alinhada com sua conta Google."
-          : "Tecnologia atualizada neste dispositivo.",
-      );
 
       return { ok: true };
     }
@@ -302,24 +326,23 @@ function App() {
     };
 
     const nextTechList = [nextTechnology, ...techList];
+    applyTechList(nextTechList);
+    setActiveTechnology(nextTechnology);
 
     if (supabaseConfigured && supabase && authUser?.id) {
       try {
         await syncRemoteTechnologies(authUser.id, nextTechList);
         setLastSyncedAt(new Date().toISOString());
         setAuthError("");
+        setSyncNotice("Tecnologia adicionada e sincronizada com sua conta Google.");
       } catch (error) {
-        return { ok: false, error: getFriendlySyncError(error) };
+        setAuthError(getFriendlySyncError(error));
+        setSyncNotice("Tecnologia adicionada neste dispositivo. A nuvem nao respondeu agora.");
+        return { ok: true };
       }
+    } else {
+      setSyncNotice("Tecnologia adicionada neste dispositivo.");
     }
-
-    applyTechList(nextTechList);
-    setActiveTechnology(nextTechnology);
-    setSyncNotice(
-      authUser
-        ? "Tecnologia adicionada e sincronizada com sua conta Google."
-        : "Tecnologia adicionada neste dispositivo.",
-    );
     return { ok: true };
   };
 
@@ -412,7 +435,7 @@ function App() {
       return tech;
     });
 
-    setTechList(nextTechList);
+    applyTechList(nextTechList);
 
     if (!supabaseConfigured || !supabase || !authUser?.id) {
       setSyncNotice("Salvo localmente neste dispositivo.");
@@ -422,9 +445,9 @@ function App() {
     try {
       setSyncNotice("Salvando seu estudo na nuvem...");
       const payload = createStudyEntryPayload(authUser.id, technologyName, updatedContent);
-      const { error } = await supabase
+      const { error } = await runRemoteQuery(supabase
         .from(supabaseStudyEntriesTable)
-        .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" });
+        .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" }));
 
       if (error) throw error;
 
@@ -434,7 +457,7 @@ function App() {
       return { location: "cloud" };
     } catch (error) {
       setAuthError(getFriendlySyncError(error));
-      setSyncNotice("Salvo localmente. A sincronizacao remota vai depender da configuracao do Supabase.");
+      setSyncNotice("Salvo localmente. A nuvem nao respondeu agora.");
       return { location: "local" };
     }
   };

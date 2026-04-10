@@ -544,7 +544,7 @@ export function getFriendlySyncError(error) {
     return "O login Google ainda nao esta configurado no Supabase.";
   }
 
-  if (/Failed to fetch|network|fetch/i.test(message)) {
+  if (/Failed to fetch|network|fetch|abort|timed out|timeout/i.test(message)) {
     return "Nao foi possivel falar com o Supabase agora. Seus dados continuam no cache local.";
   }
 
