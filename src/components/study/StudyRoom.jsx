@@ -16,7 +16,10 @@ import {
 import DynamicEditor from "./DynamicEditor";
 
 async function fetchSummary(title, code) {
-  if (import.meta.env.DEV && import.meta.env.VITE_GROQ_API_KEY) {
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const isLoopbackHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+
+  if (import.meta.env.DEV && isLoopbackHost && import.meta.env.VITE_GROQ_API_KEY) {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {

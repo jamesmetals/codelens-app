@@ -39,6 +39,15 @@ const MIN_SIZE = 11;
 const MAX_SIZE = 28;
 const STORAGE_KEY = "codenlens_text_palette";
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function loadPalette() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -209,7 +218,7 @@ function toEditorHtml(text) {
 
   return text
     .split("\n")
-    .map((line) => `<div>${line || "<br>"}</div>`)
+    .map((line) => `<div>${line ? escapeHtml(line) : "<br>"}</div>`)
     .join("");
 }
 
@@ -344,7 +353,7 @@ export default function DynamicEditor({
     selection.removeAllRanges();
     selection.addRange(range);
 
-    const spanHtml = `<span id="${spanId}" style="background-color:${ledColor.hex}22;color:${ledColor.hex};border-bottom:2px solid ${ledColor.hex};border-radius:3px;padding:0 3px;cursor:pointer;transition:box-shadow 0.2s;">${text}</span>`;
+    const spanHtml = `<span id="${spanId}" style="background-color:${ledColor.hex}22;color:${ledColor.hex};border-bottom:2px solid ${ledColor.hex};border-radius:3px;padding:0 3px;cursor:pointer;transition:box-shadow 0.2s;">${escapeHtml(text)}</span>`;
 
     document.execCommand("insertHTML", false, spanHtml);
 

@@ -204,7 +204,7 @@ function TechnologyCard({
             technology={technology}
             className="h-full w-full rounded-none border-0"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0f1930] via-transparent to-transparent" />
+          <div className="technology-card-image-fade absolute inset-0" />
           <span className={`absolute right-4 top-4 rounded bg-[#192540]/80 px-2 py-1 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.12em] backdrop-blur-md ${badgeToneClass}`}>
             {technology.cardLabel || "Biblioteca"}
           </span>

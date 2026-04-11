@@ -13,6 +13,16 @@ dist
 dist-ssr
 *.local
 src-tauri/target
+supabase/.temp/
+vite-*.log
+.agent/
+.codex/
+.codex-temp/
+ANALISE_E_SUGESTOES.md
+PLAN-*.md
+Arquivos complementares/
+lint_output.txt
+out.txt
 
 # Editor directories and files
 .vscode/*

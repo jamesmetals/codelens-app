@@ -1,13 +1,18 @@
 .git
 .vercel
+.agent
+.codex
+.codex-temp
 node_modules
 dist
 dist-ssr
 .env
 .env.*
 desktop.ini
-src-tauri
-docs
-telas_googlestich
+vite-*.log
 ANALISE_E_SUGESTOES.md
 Iniciar-Codelens.bat
+PLAN-*.md
+Arquivos complementares
+lint_output.txt
+out.txt

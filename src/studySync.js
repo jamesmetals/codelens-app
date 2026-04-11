@@ -62,6 +62,10 @@ function normalizeTechnologyImage(image) {
   };
 }
 
+function isDataImageSource(src) {
+  return String(src || "").startsWith("data:");
+}
+
 function normalizeTechnologyMetaMap(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
 
@@ -121,11 +125,15 @@ function applyTechnologyMeta(techList, metaMap) {
 
 function buildTechnologyMeta(techList) {
   return normalizeTechnologies(techList).reduce((accumulator, technology) => {
+    const normalizedImage = normalizeTechnologyImage(technology.image);
+
     accumulator[technology.id] = {
       name: technology.name,
       category: technology.category,
       categoryAccent: technology.categoryAccent,
-      image: normalizeTechnologyImage(technology.image),
+      image: normalizedImage && !isDataImageSource(normalizedImage.src)
+        ? normalizedImage
+        : null,
     };
 
     return accumulator;
@@ -375,20 +383,39 @@ export function hasGuestDraftData() {
 }
 
 export function writeStoredTechs(storageKey, techList) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return { ok: false };
 
   const normalized = normalizeTechnologies(techList);
   const raw = JSON.stringify(normalized);
   const metadataRaw = JSON.stringify(buildTechnologyMeta(normalized));
 
-  localStorage.setItem(storageKey, raw);
-  localStorage.setItem(getMetadataStorageKey(storageKey), metadataRaw);
+  try {
+    localStorage.setItem(storageKey, raw);
 
-  if (isGuestStorageKey(storageKey)) {
-    localStorage.setItem(GUEST_DIRTY_FLAG, "1");
-    localStorage.setItem(getMetadataStorageKey(GUEST_STORAGE_KEY), metadataRaw);
-    localStorage.setItem(LEGACY_GUEST_STORAGE_KEY, raw);
-    localStorage.setItem(getMetadataStorageKey(LEGACY_GUEST_STORAGE_KEY), metadataRaw);
+    if (metadataRaw === "{}") {
+      localStorage.removeItem(getMetadataStorageKey(storageKey));
+    } else {
+      localStorage.setItem(getMetadataStorageKey(storageKey), metadataRaw);
+    }
+
+    if (isGuestStorageKey(storageKey)) {
+      localStorage.setItem(GUEST_DIRTY_FLAG, "1");
+    }
+
+    return { ok: true };
+  } catch (error) {
+    try {
+      localStorage.removeItem(getMetadataStorageKey(storageKey));
+
+      if (isGuestStorageKey(storageKey)) {
+        localStorage.removeItem(getMetadataStorageKey(GUEST_STORAGE_KEY));
+        localStorage.removeItem(getMetadataStorageKey(LEGACY_GUEST_STORAGE_KEY));
+      }
+    } catch {
+      // Ignore cleanup failures and keep the app responsive.
+    }
+
+    return { ok: false, error };
   }
 }
 

@@ -33,11 +33,22 @@ function isUploadSource(src) {
   return String(src || "").startsWith("data:");
 }
 
-function loadImageMetadata(src) {
+function loadImageElement(src) {
   return new Promise((resolve, reject) => {
     const image = new Image();
 
-    image.onload = () => {
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Nao foi possivel carregar a imagem."));
+
+    image.decoding = "async";
+    image.referrerPolicy = "no-referrer";
+    image.src = src;
+  });
+}
+
+function loadImageMetadata(src) {
+  return new Promise((resolve, reject) => {
+    loadImageElement(src).then((image) => {
       const aspectRatio = image.naturalWidth && image.naturalHeight
         ? image.naturalWidth / image.naturalHeight
         : 1;
@@ -45,15 +56,7 @@ function loadImageMetadata(src) {
       resolve({
         aspectRatio: Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1,
       });
-    };
-
-    image.onerror = () => {
-      reject(new Error("Nao foi possivel carregar a imagem."));
-    };
-
-    image.decoding = "async";
-    image.referrerPolicy = "no-referrer";
-    image.src = src;
+    }).catch(reject);
   });
 }
 
@@ -64,6 +67,32 @@ function readFileAsDataUrl(file) {
     reader.onerror = () => reject(new Error("Nao foi possivel ler o arquivo."));
     reader.readAsDataURL(file);
   });
+}
+
+async function optimizeUploadedImage(file) {
+  const originalDataUrl = await readFileAsDataUrl(file);
+  const sourceImage = await loadImageElement(originalDataUrl);
+  const maxDimension = 1600;
+  const longestSide = Math.max(sourceImage.naturalWidth || 0, sourceImage.naturalHeight || 0);
+  const scale = longestSide > maxDimension ? (maxDimension / longestSide) : 1;
+  const width = Math.max(1, Math.round((sourceImage.naturalWidth || 1) * scale));
+  const height = Math.max(1, Math.round((sourceImage.naturalHeight || 1) * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+  if (!context) return originalDataUrl;
+
+  context.drawImage(sourceImage, 0, 0, width, height);
+
+  const mimeType = file.type === "image/png" ? "image/webp" : (file.type || "image/webp");
+  const compressedDataUrl = canvas.toDataURL(mimeType, 0.82);
+
+  return compressedDataUrl.length < originalDataUrl.length
+    ? compressedDataUrl
+    : originalDataUrl;
 }
 
 function getInitialState(technology) {
@@ -342,7 +371,7 @@ export default function TechnologyModal({
     if (!file) return;
 
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      const dataUrl = await optimizeUploadedImage(file);
       await applyLoadedImage(dataUrl);
     } catch (fileError) {
       setError(fileError.message);

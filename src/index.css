@@ -332,6 +332,30 @@ button {
   opacity: 1;
 }
 
+.technology-artwork-fade {
+  background: linear-gradient(
+    180deg,
+    rgba(6, 17, 31, 0) 18%,
+    rgba(6, 17, 31, 0.03) 40%,
+    rgba(6, 17, 31, 0.1) 58%,
+    rgba(6, 17, 31, 0.22) 74%,
+    rgba(6, 17, 31, 0.4) 88%,
+    rgba(6, 17, 31, 0.56) 100%
+  );
+}
+
+.technology-card-image-fade {
+  background: linear-gradient(
+    180deg,
+    rgba(15, 25, 48, 0) 16%,
+    rgba(15, 25, 48, 0.06) 38%,
+    rgba(15, 25, 48, 0.16) 54%,
+    rgba(15, 25, 48, 0.34) 70%,
+    rgba(15, 25, 48, 0.62) 86%,
+    #0f1930 100%
+  );
+}
+
 .mode-chip {
   display: inline-flex;
   align-items: center;

@@ -2,8 +2,6 @@ import { createElement, useMemo, useState } from "react";
 import {
   Bell,
   BookMarked,
-  CheckCircle2,
-  Clock,
   FileText,
   GripVertical,
   HelpCircle,
@@ -104,23 +102,6 @@ function SupportLink({ icon, label, onClick }) {
   );
 }
 
-function StatusBadge({ status }) {
-  const isDone = status === "concluido";
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded px-2 py-1 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.16em] ${
-        isDone
-          ? "bg-emerald-500/15 text-emerald-300"
-          : "bg-amber-500/15 text-amber-300"
-      }`}
-    >
-      {isDone ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-      {isDone ? "Concluido" : "Em andamento"}
-    </span>
-  );
-}
-
 function ListCard({ content, onDelete, onOpen }) {
   return (
     <article
@@ -129,20 +110,19 @@ function ListCard({ content, onDelete, onOpen }) {
       <button
         type="button"
         onClick={() => onOpen(content)}
-        className="flex w-full items-start gap-4 p-6 text-left"
+        className="flex w-full items-start gap-3 px-4 py-4 text-left sm:px-5"
       >
-        <div className="pt-1 text-[#6d758c]">
+        <div className="pt-0.5 text-[#6d758c]">
           <GripVertical className="h-4 w-4" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-4">
-            <h3 className="font-['Manrope'] text-[16px] font-bold leading-6 text-[#dee5ff]">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="line-clamp-2 font-['Manrope'] text-[15px] font-bold leading-5 text-[#dee5ff]">
               {content.title}
             </h3>
 
-            <div className="flex items-center gap-3">
-              <StatusBadge status={content.status} />
+            <div className="flex shrink-0 items-center">
               <button
                 type="button"
                 onClick={(event) => {
@@ -158,7 +138,7 @@ function ListCard({ content, onDelete, onOpen }) {
           </div>
 
           {content.summary ? (
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#a3aac4]">
+            <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-[#a3aac4]">
               {content.summary}
             </p>
           ) : null}
@@ -174,10 +154,12 @@ function BlockCard({ content, onDelete, onOpen }) {
       <button
         type="button"
         onClick={() => onOpen(content)}
-        className="flex h-full w-full flex-col gap-4 p-5 text-left"
+        className="flex h-full w-full flex-col gap-3 p-4 text-left"
       >
-        <div className="flex items-center justify-between gap-3">
-          <StatusBadge status={content.status} />
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="line-clamp-2 pr-2 font-['Manrope'] text-[15px] font-bold leading-5 text-[#dee5ff]">
+            {content.title}
+          </h3>
           <button
             type="button"
             onClick={(event) => {
@@ -192,10 +174,7 @@ function BlockCard({ content, onDelete, onOpen }) {
         </div>
 
         <div>
-          <h3 className="font-['Manrope'] text-[15px] font-bold leading-6 text-[#dee5ff]">
-            {content.title}
-          </h3>
-          <p className="mt-3 text-sm leading-6 text-[#a3aac4] line-clamp-4">
+          <p className="text-sm leading-6 text-[#a3aac4] line-clamp-3">
             {content.summary || "Sem resumo ainda."}
           </p>
         </div>
@@ -210,7 +189,7 @@ function CompactCard({ content, onDelete, onOpen }) {
       <button
         type="button"
         onClick={() => onOpen(content)}
-        className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
+        className="flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left"
       >
         <div className="flex min-w-0 items-center gap-3">
           <GripVertical className="h-4 w-4 shrink-0 text-[#6d758c]" />
@@ -219,8 +198,7 @@ function CompactCard({ content, onDelete, onOpen }) {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <StatusBadge status={content.status} />
+        <div className="flex shrink-0 items-center">
           <button
             type="button"
             onClick={(event) => {
@@ -483,7 +461,7 @@ export default function TechnologyContentsList({
       </header>
 
       <main className="relative z-10 min-h-screen bg-[#060e20] px-4 pb-12 pt-20 sm:px-6 lg:ml-64 lg:px-10">
-        <header className="mb-10">
+        <header className="mb-8">
           <div className="flex items-start justify-between gap-6">
             <div>
               <div className="flex items-center gap-3">
@@ -503,7 +481,7 @@ export default function TechnologyContentsList({
           </div>
         </header>
 
-        <div className="mb-8 flex items-center justify-between gap-4">
+        <div className="mb-6 flex items-center justify-between gap-4">
           <div className="flex items-center rounded-lg border border-[#40485d]/30 bg-black/30 p-1">
             {[
               { id: "lista", icon: LayoutList, label: "Lista" },
@@ -540,7 +518,7 @@ export default function TechnologyContentsList({
             </p>
           </section>
         ) : (
-          <div className={view === "blocos" ? "grid gap-5 md:grid-cols-2 xl:grid-cols-3" : "space-y-4"}>
+          <div className={view === "blocos" ? "grid gap-4 md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
             {filtered.map((content) => {
               if (view === "blocos") {
                 return (

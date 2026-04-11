@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import anime from "animejs";
 
 import { technologies } from "./utils/mockData";
@@ -30,6 +30,77 @@ import StudyRoom from "./components/study/StudyRoom";
 import TechnologyContentsList from "./components/home/TechnologyContentsList";
 import AccountPanel from "./components/auth/AccountPanel";
 
+const VIEW_HOME = "home";
+const VIEW_TECH_LIST = "tech-list";
+const VIEW_STUDY = "study";
+
+function isKnownView(view) {
+  return view === VIEW_HOME || view === VIEW_TECH_LIST || view === VIEW_STUDY;
+}
+
+function createNavigationState(view, technology, lesson) {
+  return {
+    __codelensNavigation: true,
+    view,
+    technologyId: technology?.id ?? null,
+    lessonId: lesson?.id ?? null,
+    lessonSnapshot: view === VIEW_STUDY && lesson ? lesson : null,
+  };
+}
+
+function resolveNavigationState(state, techs) {
+  const safeTechs = Array.isArray(techs) ? techs : [];
+  const fallbackTechnology = safeTechs[0] || technologies[0] || null;
+  const requestedView = isKnownView(state?.view) ? state.view : VIEW_HOME;
+  const requestedTechnologyId = state?.technologyId;
+
+  const nextTechnology = requestedTechnologyId != null
+    ? safeTechs.find((tech) => String(tech.id) === String(requestedTechnologyId)) || fallbackTechnology
+    : fallbackTechnology;
+
+  if (requestedView === VIEW_HOME) {
+    return {
+      view: VIEW_HOME,
+      technology: nextTechnology,
+      lesson: null,
+    };
+  }
+
+  if (!nextTechnology) {
+    return {
+      view: VIEW_HOME,
+      technology: null,
+      lesson: null,
+    };
+  }
+
+  if (requestedView === VIEW_TECH_LIST) {
+    return {
+      view: VIEW_TECH_LIST,
+      technology: nextTechnology,
+      lesson: null,
+    };
+  }
+
+  const nextLesson = (nextTechnology.contents || []).find(
+    (lesson) => String(lesson.id) === String(state?.lessonId),
+  ) || state?.lessonSnapshot || null;
+
+  if (!nextLesson) {
+    return {
+      view: VIEW_TECH_LIST,
+      technology: nextTechnology,
+      lesson: null,
+    };
+  }
+
+  return {
+    view: VIEW_STUDY,
+    technology: nextTechnology,
+    lesson: nextLesson,
+  };
+}
+
 function App() {
   const REMOTE_SYNC_TIMEOUT_MS = 12000;
   const [authUser, setAuthUser] = useState(null);
@@ -47,12 +118,32 @@ function App() {
   const [isDevBriefOpen, setIsDevBriefOpen] = useState(false);
   const [contextCode, setContextCode] = useState("");
   const [devBriefSeed, setDevBriefSeed] = useState(0);
-  const [currentView, setCurrentView] = useState("home"); // "home", "tech-list", "study"
+  const [currentView, setCurrentView] = useState(VIEW_HOME);
   const [technologyModal, setTechnologyModal] = useState({
     open: false,
     mode: "create",
     technology: null,
   });
+  const techListRef = useRef(techList);
+
+  const navigateTo = (view, options = {}) => {
+    const {
+      historyMode = "push",
+      lesson = null,
+      technology = activeTechnology ?? techListRef.current[0] ?? technologies[0] ?? null,
+    } = options;
+
+    const nextLesson = view === VIEW_STUDY ? lesson : null;
+
+    setActiveTechnology(technology);
+    setActiveLesson(nextLesson);
+    setCurrentView(view);
+
+    if (typeof window !== "undefined" && historyMode !== "none") {
+      const method = historyMode === "replace" ? "replaceState" : "pushState";
+      window.history[method](createNavigationState(view, technology, nextLesson), "");
+    }
+  };
 
   const applyTechList = (nextTechs) => {
     setTechList(nextTechs);
@@ -73,6 +164,16 @@ function App() {
     const nextTechs = readStoredTechs(getStorageKey(userId));
     applyTechList(nextTechs);
     return nextTechs;
+  };
+
+  const persistTechListNow = (nextTechs, userId = authUser?.id || null) => {
+    const result = writeStoredTechs(getStorageKey(userId), nextTechs);
+
+    if (result?.ok === false) {
+      setSyncNotice("A imagem ficou grande demais para o armazenamento local. Tente um arquivo menor.");
+    }
+
+    return result;
   };
 
   const openCreateTechnologyModal = () => {
@@ -209,8 +310,51 @@ function App() {
   };
 
   useEffect(() => {
+    techListRef.current = techList;
+  }, [techList]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const initialNavigation = resolveNavigationState(window.history.state, techListRef.current);
+    setActiveTechnology(initialNavigation.technology);
+    setActiveLesson(initialNavigation.lesson);
+    setCurrentView(initialNavigation.view);
+    window.history.replaceState(
+      createNavigationState(
+        initialNavigation.view,
+        initialNavigation.technology,
+        initialNavigation.lesson,
+      ),
+      "",
+    );
+
+    const handlePopState = (event) => {
+      const nextNavigation = resolveNavigationState(event.state, techListRef.current);
+      setActiveTechnology(nextNavigation.technology);
+      setActiveLesson(nextNavigation.lesson);
+      setCurrentView(nextNavigation.view);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.history.replaceState(createNavigationState(currentView, activeTechnology, activeLesson), "");
+  }, [activeLesson, activeTechnology, currentView]);
+
+  useEffect(() => {
     if (!authChecked) return;
-    writeStoredTechs(storageKey, techList);
+    const storageResult = writeStoredTechs(storageKey, techList);
+
+    if (storageResult?.ok === false) {
+      setSyncNotice("A imagem ficou grande demais para o armazenamento local. Tente um arquivo menor.");
+    }
   }, [authChecked, storageKey, techList]);
 
   useEffect(() => {
@@ -291,6 +435,7 @@ function App() {
       ));
 
       applyTechList(nextTechList);
+      persistTechListNow(nextTechList);
 
       if (supabaseConfigured && supabase && authUser?.id) {
         try {
@@ -327,6 +472,7 @@ function App() {
 
     const nextTechList = [nextTechnology, ...techList];
     applyTechList(nextTechList);
+    persistTechListNow(nextTechList);
     setActiveTechnology(nextTechnology);
 
     if (supabaseConfigured && supabase && authUser?.id) {
@@ -374,8 +520,7 @@ function App() {
     applyTechList(nextTechList);
 
     if (activeTechnology?.id === targetTechnology.id) {
-      setActiveLesson(null);
-      setCurrentView("home");
+      navigateTo(VIEW_HOME, { historyMode: "replace" });
     }
 
     setSyncNotice(
@@ -433,12 +578,19 @@ function App() {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!active) return;
 
+      if (_event === "TOKEN_REFRESHED" || _event === "USER_UPDATED") {
+        setAuthUser(session?.user || null);
+        return;
+      }
+
       setAuthChecked(false);
       const nextUser = session?.user || null;
       setAuthUser(nextUser);
       setShowAccountPanel(false);
-      setActiveLesson(null);
-      setCurrentView("home");
+
+      if (_event === "SIGNED_OUT") {
+        navigateTo(VIEW_HOME, { historyMode: "replace" });
+      }
 
       if (nextUser) {
         loadLocalTechList(nextUser.id);
@@ -537,8 +689,7 @@ function App() {
       setAuthError(getFriendlySyncError(error));
     } finally {
       setAuthUser(null);
-      setActiveLesson(null);
-      setCurrentView("home");
+      navigateTo(VIEW_HOME, { historyMode: "replace" });
       loadLocalTechList();
       setLastSyncedAt("");
       setSyncNotice("Sessao encerrada. O app segue funcionando com cache local neste navegador.");
@@ -547,7 +698,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (currentView !== "home") return;
+    if (currentView !== VIEW_HOME) return;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -609,15 +760,14 @@ function App() {
 
   return (
     <div className="app-shell">
-      {currentView === "home" ? (
+      {currentView === VIEW_HOME ? (
         <DashboardHome
           authUser={authUser}
           onCreateTechnology={openCreateTechnologyModal}
           onEditTechnology={openEditTechnologyModal}
           onOpenAccount={() => setShowAccountPanel(true)}
           onSelectTechnology={(technology) => {
-            setActiveTechnology(technology);
-            setCurrentView("tech-list");
+            navigateTo(VIEW_TECH_LIST, { technology });
           }}
           onSignInWithGoogle={handleSignInWithGoogle}
           setActiveTechnology={setActiveTechnology}
@@ -626,30 +776,32 @@ function App() {
         />
       ) : null}
 
-      {currentView === "tech-list" && (
+      {currentView === VIEW_TECH_LIST && (
         <TechnologyContentsList 
            key={activeTechnology?.id || "tech-list"}
            activeTechnology={activeTechnology}
            authUser={authUser}
-            onBack={() => setCurrentView("home")}
+            onBack={() => navigateTo(VIEW_HOME)}
            onEditTechnology={openEditTechnologyModal}
            onOpenAccount={() => setShowAccountPanel(true)}
            onOpenStudyRoom={(lesson) => {
-             setActiveLesson(lesson);
-             setCurrentView("study");
+             navigateTo(VIEW_STUDY, {
+               lesson,
+               technology: activeTechnology,
+             });
            }}
            onSignInWithGoogle={handleSignInWithGoogle}
            supabaseConfigured={supabaseConfigured}
         />
       )}
 
-      {currentView === "study" && (
+      {currentView === VIEW_STUDY && (
         <StudyRoom 
           key={activeLesson?.id || "study-room"}
           activeTechnology={activeTechnology}
           activeLesson={activeLesson}
           authUser={authUser}
-          onBack={() => setCurrentView("tech-list")}
+          onBack={() => navigateTo(VIEW_TECH_LIST, { technology: activeTechnology })}
           onOpenAccount={() => setShowAccountPanel(true)}
           onOpenDevBrief={(code) => {
             setContextCode(code);
