@@ -364,6 +364,13 @@ function App() {
     }
   }, [techList, activeTechnology]);
 
+  const resolvedActiveTechnology = activeTechnology ?? techList[0] ?? technologies[0] ?? null;
+  const resolvedView = !isKnownView(currentView)
+    ? VIEW_HOME
+    : currentView === VIEW_STUDY && !activeLesson
+      ? (resolvedActiveTechnology ? VIEW_TECH_LIST : VIEW_HOME)
+      : currentView;
+
   const handleSaveTechnology = async (technologyDraft) => {
     const nextName = String(technologyDraft?.name || "").trim();
 
@@ -473,7 +480,10 @@ function App() {
     const nextTechList = [nextTechnology, ...techList];
     applyTechList(nextTechList);
     persistTechListNow(nextTechList);
-    setActiveTechnology(nextTechnology);
+    navigateTo(VIEW_HOME, {
+      historyMode: "replace",
+      technology: nextTechnology,
+    });
 
     if (supabaseConfigured && supabase && authUser?.id) {
       try {
@@ -698,7 +708,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (currentView !== VIEW_HOME) return;
+    if (resolvedView !== VIEW_HOME) return;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -756,11 +766,11 @@ function App() {
       anime.remove('[data-reveal="hero"]');
       anime.remove('[data-reveal="panel"]');
     };
-  }, [currentView]);
+  }, [resolvedView]);
 
   return (
     <div className="app-shell">
-      {currentView === VIEW_HOME ? (
+      {resolvedView === VIEW_HOME ? (
         <DashboardHome
           authUser={authUser}
           onCreateTechnology={openCreateTechnologyModal}
@@ -776,10 +786,10 @@ function App() {
         />
       ) : null}
 
-      {currentView === VIEW_TECH_LIST && (
+      {resolvedView === VIEW_TECH_LIST && (
         <TechnologyContentsList 
-           key={activeTechnology?.id || "tech-list"}
-           activeTechnology={activeTechnology}
+           key={resolvedActiveTechnology?.id || "tech-list"}
+           activeTechnology={resolvedActiveTechnology}
            authUser={authUser}
             onBack={() => navigateTo(VIEW_HOME)}
            onEditTechnology={openEditTechnologyModal}
@@ -787,7 +797,7 @@ function App() {
            onOpenStudyRoom={(lesson) => {
              navigateTo(VIEW_STUDY, {
                lesson,
-               technology: activeTechnology,
+               technology: resolvedActiveTechnology,
              });
            }}
            onSignInWithGoogle={handleSignInWithGoogle}
@@ -795,13 +805,13 @@ function App() {
         />
       )}
 
-      {currentView === VIEW_STUDY && (
+      {resolvedView === VIEW_STUDY && (
         <StudyRoom 
           key={activeLesson?.id || "study-room"}
-          activeTechnology={activeTechnology}
+          activeTechnology={resolvedActiveTechnology}
           activeLesson={activeLesson}
           authUser={authUser}
-          onBack={() => navigateTo(VIEW_TECH_LIST, { technology: activeTechnology })}
+          onBack={() => navigateTo(VIEW_TECH_LIST, { technology: resolvedActiveTechnology })}
           onOpenAccount={() => setShowAccountPanel(true)}
           onOpenDevBrief={(code) => {
             setContextCode(code);
@@ -809,7 +819,7 @@ function App() {
             setIsDevBriefOpen(true);
           }}
           onSignInWithGoogle={handleSignInWithGoogle}
-          onUpdateContent={(updated) => handleUpdateContent(activeTechnology.id, updated)}
+          onUpdateContent={(updated) => handleUpdateContent(resolvedActiveTechnology.id, updated)}
           supabaseConfigured={supabaseConfigured}
         />
       )}
