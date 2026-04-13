@@ -9,6 +9,12 @@ import {
   supabaseStudyEntriesTable,
 } from "./supabase";
 import {
+  DEFAULT_CATEGORIES,
+  getCategoriesStorageKey,
+  readStoredCategories,
+  writeStoredCategories,
+  createCategoryRegistryPayload,
+  parseCategoryRegistryEntry,
   clearStoredTechs,
   createTechnologyMetadataPayload,
   createTechnologyId,
@@ -26,6 +32,7 @@ import {
 } from "./studySync";
 import DashboardHome from "./components/home/DashboardHome";
 import TechnologyModal from "./components/home/TechnologyModal";
+import CategoryManagerModal from "./components/home/CategoryManagerModal";
 import DevBriefPanel from "./components/devbrief/DevBriefPanel";
 import StudyRoom from "./components/study/StudyRoom";
 import TechnologyContentsList from "./components/home/TechnologyContentsList";
@@ -112,7 +119,9 @@ function App() {
   const [showAccountPanel, setShowAccountPanel] = useState(false);
 
   const storageKey = getStorageKey(authUser?.id);
+  const categoriesKey = getCategoriesStorageKey(authUser?.id);
 
+  const [categoryList, setCategoryList] = useState(() => readStoredCategories(getCategoriesStorageKey()));
   const [techList, setTechList] = useState(() => readStoredTechs(getStorageKey()));
   const [activeTechnology, setActiveTechnology] = useState(() => readStoredTechs(getStorageKey())[0] || technologies[0]);
   const [activeLesson, setActiveLesson] = useState(null);
@@ -125,6 +134,7 @@ function App() {
     mode: "create",
     technology: null,
   });
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const techListRef = useRef(techList);
 
   const navigateTo = (view, options = {}) => {
@@ -220,10 +230,15 @@ function App() {
     }
   };
 
-  const syncRemoteTechnologies = async (userId, nextTechs) => {
+  const syncRemoteTechnologies = async (userId, nextTechs, nextCategories) => {
     if (!supabaseConfigured || !supabase || !userId) return;
 
     const payload = nextTechs.map((technology, index) => createTechnologyMetadataPayload(userId, technology, index));
+    
+    if (nextCategories) {
+      payload.push(createCategoryRegistryPayload(userId, nextCategories));
+    }
+
     const { error } = await runRemoteQuery(supabase
       .from(supabaseStudyEntriesTable)
       .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" }));
@@ -236,9 +251,10 @@ function App() {
     if (!hasGuestDraftData()) return false;
 
     const guestTechs = readStoredTechs(getStorageKey());
+    const guestCategories = readStoredCategories(getCategoriesStorageKey());
     const modifiedLessons = extractModifiedLessons(guestTechs);
 
-    await syncRemoteTechnologies(user.id, guestTechs);
+    await syncRemoteTechnologies(user.id, guestTechs, guestCategories);
 
     if (modifiedLessons.length) {
       const payload = modifiedLessons.map(({ technologyName, lesson }) =>
@@ -296,6 +312,12 @@ function App() {
           if (error) throw error;
           remoteEntries = data || [];
         }
+      }
+
+      const remoteCategoriesEntry = remoteEntries.find(entry => parseCategoryRegistryEntry(entry) !== null);
+      if (remoteCategoriesEntry) {
+        setCategoryList(parseCategoryRegistryEntry(remoteCategoriesEntry));
+        writeStoredCategories(getCategoriesStorageKey(user.id), parseCategoryRegistryEntry(remoteCategoriesEntry));
       }
 
       const mergedBase = mergeRemoteTechnologies(
@@ -368,6 +390,10 @@ function App() {
       setSyncNotice("A imagem ficou grande demais para o armazenamento local. Tente um arquivo menor.");
     }
   }, [authChecked, storageKey, techList]);
+
+  useEffect(() => {
+    writeStoredCategories(categoriesKey, categoryList);
+  }, [categoryList, categoriesKey]);
 
   useEffect(() => {
     if (activeTechnology) {
@@ -447,7 +473,7 @@ function App() {
             ...tech,
             name: nextName,
             image: sanitizedImage,
-            category: tech.category || "Minhas tecnologias",
+            category: technologyDraft.category || tech.category || "Minhas tecnologias",
             categoryAccent: tech.categoryAccent || "Conteúdos organizados",
           }
           : tech
@@ -478,7 +504,7 @@ function App() {
       id: createTechnologyId(nextName),
       name: nextName,
       image: sanitizedImage,
-      category: "Minhas tecnologias",
+      category: technologyDraft?.category || "Minhas tecnologias",
       categoryAccent: "Conteúdos organizados",
       progress: 0,
       lessons: 0,
@@ -492,8 +518,8 @@ function App() {
     const nextTechList = [nextTechnology, ...techList];
     applyTechList(nextTechList);
     persistTechListNow(nextTechList);
-    navigateTo(VIEW_HOME, {
-      historyMode: "replace",
+    navigateTo(VIEW_TECH_LIST, {
+      historyMode: "push",
       technology: nextTechnology,
     });
 
@@ -835,6 +861,7 @@ function App() {
           onCreateTechnology={openCreateTechnologyModal}
           onEditTechnology={openEditTechnologyModal}
           onOpenAccount={() => setShowAccountPanel(true)}
+          onManageCategories={() => setIsCategoryManagerOpen(true)}
           onSelectTechnology={(technology) => {
             navigateTo(VIEW_TECH_LIST, { technology });
           }}
@@ -842,6 +869,8 @@ function App() {
           setActiveTechnology={setActiveTechnology}
           supabaseConfigured={supabaseConfigured}
           technologies={techList}
+          categoryList={categoryList}
+          setCategoryList={setCategoryList}
         />
       ) : null}
 
@@ -899,7 +928,22 @@ function App() {
         onClose={closeTechnologyModal}
         onDelete={handleDeleteTechnology}
         onSave={handleSaveTechnology}
+        categoryList={categoryList}
       />
+
+      {isCategoryManagerOpen && (
+        <CategoryManagerModal
+          isOpen={isCategoryManagerOpen}
+          onClose={() => setIsCategoryManagerOpen(false)}
+          categoryList={categoryList}
+          setCategoryList={setCategoryList}
+          techList={techList}
+          onUpdateTechList={(next) => {
+            applyTechList(next);
+            persistTechListNow(next);
+          }}
+        />
+      )}
 
       {showAccountPanel && authUser ? (
         <AccountPanel

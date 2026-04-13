@@ -105,6 +105,7 @@ function getInitialState(technology) {
 
   return {
     name: technology?.name || "",
+    category: technology?.category || "Minhas tecnologias",
     image,
     urlInput: !image || isUploadSource(image.src) ? "" : image.src,
   };
@@ -268,10 +269,12 @@ export default function TechnologyModal({
   onClose,
   onDelete,
   onSave,
+  categoryList,
 }) {
   const fileInputRef = useRef(null);
 
   const [name, setName] = useState("");
+  const [category, setCategory] = useState("Minhas tecnologias");
   const [imageDraft, setImageDraft] = useState(null);
   const [urlInput, setUrlInput] = useState("");
   const [error, setError] = useState("");
@@ -289,6 +292,7 @@ export default function TechnologyModal({
 
     const nextState = getInitialState(technology);
     setName(nextState.name);
+    setCategory(nextState.category);
     setImageDraft(nextState.image);
     setUrlInput(nextState.urlInput);
     setError("");
@@ -394,6 +398,7 @@ export default function TechnologyModal({
       const result = await onSave({
         id: technology?.id,
         name: name.trim(),
+        category,
         image: imageDraft,
       });
 
@@ -475,6 +480,23 @@ export default function TechnologyModal({
                   onChange={(event) => setName(event.target.value)}
                   className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:border-sky-400/40 focus:outline-none"
                 />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  Categoria
+                </span>
+                <select
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white focus:border-sky-400/40 focus:outline-none"
+                >
+                  {(categoryList || []).map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <div className="space-y-3">

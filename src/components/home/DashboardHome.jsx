@@ -15,11 +15,27 @@ import {
   UserCircle2,
 } from "lucide-react";
 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 import GoogleMark from "../shared/GoogleMark";
 import { getAvatarFallback, getAvatarUrl } from "../../utils/authUi";
 import TechnologyArtwork from "./TechnologyArtwork";
 
-const SECTION_ORDER = ["Fundamentos", "Frameworks", "Infraestrutura", "Minhas tecnologias"];
 
 function getSectionAccent(category, fallback) {
   const map = {
@@ -44,7 +60,7 @@ function getBadgeClasses(tone) {
   return map[tone] || map.sky;
 }
 
-function getTechnologyGroups(technologies, searchTerm) {
+function getTechnologyGroups(technologies, searchTerm, categoryList = []) {
   const query = String(searchTerm || "").trim().toLowerCase();
 
   const filtered = !query
@@ -84,9 +100,12 @@ function getTechnologyGroups(technologies, searchTerm) {
     groupedMap.get(category).items.push(technology);
   });
 
+  const fallbackOrder = ["Minhas tecnologias", "Fundamentos", "Frameworks", "Infraestrutura"];
+  const finalOrder = categoryList?.length ? categoryList.map(c => c.name) : fallbackOrder;
+
   return Array.from(groupedMap.values()).sort((left, right) => {
-    const leftIndex = SECTION_ORDER.indexOf(left.category);
-    const rightIndex = SECTION_ORDER.indexOf(right.category);
+    const leftIndex = finalOrder.indexOf(left.category);
+    const rightIndex = finalOrder.indexOf(right.category);
 
     if (leftIndex === -1 && rightIndex === -1) return left.category.localeCompare(right.category);
     if (leftIndex === -1) return 1;
@@ -252,23 +271,67 @@ function SectionRail({
   );
 }
 
+function SortableSectionRail({ id, group, ...props }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative group/sortable-rail">
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute -left-10 top-2 z-[30] flex h-8 w-8 cursor-grab items-center justify-center rounded text-[#40485d] opacity-0 transition-opacity hover:bg-[#141f38] hover:text-[#69daff] active:cursor-grabbing group-hover/sortable-rail:opacity-100 xl:flex hidden"
+        title="Arraste para reordenar esta categoria"
+      >
+        <LayoutDashboard className="h-4 w-4" />
+      </div>
+      <SectionRail group={group} {...props} />
+    </div>
+  );
+}
+
 export default function DashboardHome({
   authUser,
   onCreateTechnology,
   onEditTechnology,
+  onManageCategories,
   onOpenAccount,
   onSelectTechnology,
   onSignInWithGoogle,
   setActiveTechnology,
   supabaseConfigured,
   technologies,
+  categoryList,
+  setCategoryList,
 }) {
   const [searchTerm, setSearchTerm] = useState("");
 
   const groupedTechnologies = useMemo(
-    () => getTechnologyGroups(technologies, searchTerm),
-    [technologies, searchTerm],
+    () => getTechnologyGroups(technologies, searchTerm, categoryList),
+    [technologies, searchTerm, categoryList],
   );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = categoryList.findIndex((item) => `rail-${item.name}` === active.id);
+      const newIndex = categoryList.findIndex((item) => `rail-${item.name}` === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        setCategoryList(arrayMove(categoryList, oldIndex, newIndex));
+      }
+    }
+  };
 
   const maxContentCount = useMemo(
     () => Math.max(...technologies.map((technology) => technology.contents?.length || 0), 1),
@@ -307,6 +370,11 @@ export default function DashboardHome({
                 openTechnology(technologies[0]);
               }
             }}
+          />
+          <SidebarItem
+            icon={LayoutDashboard}
+            label="Categorias"
+            onClick={onManageCategories}
           />
           <SidebarItem
             icon={UserCircle2}
@@ -413,15 +481,20 @@ export default function DashboardHome({
         </header>
 
         {groupedTechnologies.length ? (
-          groupedTechnologies.map((group) => (
-            <SectionRail
-              key={group.category}
-              group={group}
-              maxContentCount={maxContentCount}
-              onEditTechnology={onEditTechnology}
-              onOpenTechnology={openTechnology}
-            />
-          ))
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={groupedTechnologies.map(g => `rail-${g.category}`)} strategy={verticalListSortingStrategy}>
+              {groupedTechnologies.map((group) => (
+                <SortableSectionRail
+                  id={`rail-${group.category}`}
+                  key={`rail-${group.category}`}
+                  group={group}
+                  maxContentCount={maxContentCount}
+                  onEditTechnology={onEditTechnology}
+                  onOpenTechnology={openTechnology}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         ) : (
           <section className="rounded-xl border border-[#40485d]/10 bg-[#0f1930] px-6 py-16 text-center">
             <p className="font-['Manrope'] text-lg font-bold text-[#dee5ff]">

@@ -5,6 +5,15 @@ const LEGACY_GUEST_STORAGE_KEY = "codenlens_techs";
 const GUEST_DIRTY_FLAG = "codenlens_guest_dirty";
 const TECHNOLOGY_META_LESSON_ID = 0;
 const TECHNOLOGY_META_TITLE = "__technology_meta__";
+const CATEGORY_META_LESSON_ID = -1;
+const CATEGORY_META_TITLE = "__category_registry__";
+
+export const DEFAULT_CATEGORIES = [
+  { id: "cat-minhas", name: "Minhas tecnologias", accent: "Bibliotecas personalizadas" },
+  { id: "cat-fundamentos", name: "Fundamentos", accent: "Habilidades essenciais" },
+  { id: "cat-frameworks", name: "Frameworks", accent: "UI e logica" },
+  { id: "cat-infra", name: "Infraestrutura", accent: "Sistemas e fluxo" }
+];
 
 function cloneValue(value) {
   return JSON.parse(JSON.stringify(value));
@@ -449,6 +458,63 @@ export function readStoredTechs(storageKey) {
   }
 }
 
+export function getCategoriesStorageKey(userId) {
+  return userId ? `codenlens_categories_${userId}` : "codenlens_categories_guest";
+}
+
+export function readStoredCategories(storageKey) {
+  if (typeof window === "undefined") return DEFAULT_CATEGORIES;
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return DEFAULT_CATEGORIES;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_CATEGORIES;
+  } catch {
+    return DEFAULT_CATEGORIES;
+  }
+}
+
+export function writeStoredCategories(storageKey, categories) {
+  if (typeof window === "undefined") return { ok: false };
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(categories));
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+export function createCategoryRegistryPayload(userId, categories) {
+  return {
+    user_id: userId,
+    technology_name: "__categories__",
+    lesson_id: CATEGORY_META_LESSON_ID,
+    title: CATEGORY_META_TITLE,
+    summary: "System categories array",
+    full_code: JSON.stringify(categories),
+    study_notes: [],
+    highlights: [],
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export function parseCategoryRegistryEntry(entry) {
+  if (Number(entry?.lesson_id) !== CATEGORY_META_LESSON_ID || entry?.title !== CATEGORY_META_TITLE) {
+    return null;
+  }
+  try {
+    return JSON.parse(entry.full_code);
+  } catch {
+    return null;
+  }
+}
+
+export function isCategoryMetaEntry(entry) {
+  return Number(entry?.lesson_id) === CATEGORY_META_LESSON_ID
+    && String(entry?.title || "").trim() === CATEGORY_META_TITLE;
+}
+
+
 export function hasGuestDraftData() {
   if (typeof window === "undefined") return false;
   if (localStorage.getItem(GUEST_DIRTY_FLAG) !== "1") return false;
@@ -519,7 +585,7 @@ export function mergeStudyEntries(entries, cachedTechs = []) {
   const techMap = new Map(nextTechs.map((tech) => [tech.name, tech]));
 
   for (const entry of entries || []) {
-    if (isTechnologyMetaEntry(entry)) continue;
+    if (isTechnologyMetaEntry(entry) || isCategoryMetaEntry(entry)) continue;
 
     const technologyName = String(entry?.technology_name || "").trim();
     const lessonId = Number(entry?.lesson_id);
