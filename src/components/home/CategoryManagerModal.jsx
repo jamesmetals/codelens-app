@@ -195,10 +195,10 @@ export default function CategoryManagerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex flex-col items-center justify-center p-2 sm:p-6">
+    <div className="fixed inset-0 z-[150] flex flex-col items-center justify-center p-0 lg:p-4 xl:p-8">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative z-10 flex h-full max-h-[800px] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#060e20] shadow-2xl">
+      <div className="relative z-10 flex h-full w-full flex-col overflow-hidden bg-[#060e20] shadow-2xl lg:rounded-2xl lg:border lg:border-white/10">
         <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#0f1930] px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sky-300">
