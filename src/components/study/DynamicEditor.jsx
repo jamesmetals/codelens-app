@@ -8,6 +8,7 @@ import {
   PaintBucket,
   Plus,
   Strikethrough,
+  Tag,
   Trash2,
   Underline,
   X,
@@ -227,6 +228,10 @@ export default function DynamicEditor({
   initialContent,
   onAddSelection,
   onChange,
+  flagsList = [],
+  lessonFlags = [],
+  onToggleFlag,
+  onManageFlags,
 }) {
   const editorRef = useRef(null);
   const savedRangeRef = useRef(null);
@@ -235,6 +240,7 @@ export default function DynamicEditor({
   const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[0]);
   const [showFontMenu, setShowFontMenu] = useState(false);
   const [showPaletteEditor, setShowPaletteEditor] = useState(false);
+  const [showFlagsMenu, setShowFlagsMenu] = useState(false);
   const [textPalette, setTextPalette] = useState(loadPalette);
 
   useEffect(() => {
@@ -286,6 +292,7 @@ export default function DynamicEditor({
       if (!event.target.closest("[data-editor-menu]")) {
         setShowFontMenu(false);
         setShowPaletteEditor(false);
+        setShowFlagsMenu(false);
       }
     };
 
@@ -508,9 +515,80 @@ export default function DynamicEditor({
           ) : null}
         </div>
 
-        <span className="ml-auto hidden shrink-0 pr-1 text-[10px] text-[#6d758c] lg:block">
-          Selecione um trecho para anotar
-        </span>
+        <Sep />
+
+        <div className="relative ml-1" data-editor-menu>
+          <button
+            type="button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              setShowFlagsMenu((current) => !current);
+              setShowFontMenu(false);
+              setShowPaletteEditor(false);
+            }}
+            className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] transition-all ${
+              showFlagsMenu
+                ? "border-[#69daff]/30 bg-[#69daff]/10 text-[#69daff]"
+                : "border-[#40485d]/20 bg-[#141f38] text-[#a3aac4] hover:text-white"
+            }`}
+          >
+            <Tag size={11} />
+            {lessonFlags.length > 0 ? `${lessonFlags.length} Flags` : "Flags"}
+          </button>
+
+          {showFlagsMenu ? (
+            <div className="absolute right-0 top-full z-[100] mt-2 w-56 overflow-hidden rounded-xl border border-[#40485d]/20 bg-[#0f1930] shadow-2xl shadow-black/60 flex flex-col max-h-72">
+              <div className="flex items-center justify-between border-b border-[#40485d]/20 px-4 py-3 bg-[#091328]">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#a3aac4]">
+                  Vincular Flags
+                </p>
+                <button type="button" onClick={() => setShowFlagsMenu(false)} className="text-[#6d758c] hover:text-[#dee5ff] transition-colors"><X size={14} /></button>
+              </div>
+
+              <div className="custom-scrollbar overflow-y-auto flex-1 p-2 space-y-1">
+                {flagsList.map(flag => {
+                  const isActive = lessonFlags.includes(flag.id);
+                  return (
+                    <button
+                      key={flag.id}
+                      type="button"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        if (onToggleFlag) onToggleFlag(flag.id);
+                      }}
+                      className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs transition-colors hover:bg-[#141f38] ${isActive ? "bg-[#141f38]/60" : ""}`}
+                    >
+                      <div className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: flag.color, opacity: isActive ? 1 : 0.4 }} />
+                      <span className={`truncate flex-1 font-['Manrope'] ${isActive ? "text-[#dee5ff] font-bold" : "text-[#a3aac4]"}`}>
+                        {flag.name}
+                      </span>
+                      {isActive && <Check size={12} className="text-[#69daff]" />}
+                    </button>
+                  );
+                })}
+
+                {flagsList.length === 0 && (
+                  <p className="text-xs text-[#6d758c] text-center py-4">Nenhuma flag criada.</p>
+                )}
+              </div>
+
+              <div className="bg-[#091328] p-2 border-t border-[#40485d]/20">
+                <button
+                  type="button"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    setShowFlagsMenu(false);
+                    if (onManageFlags) onManageFlags();
+                  }}
+                  className="flex w-full items-center justify-center gap-1 rounded-md bg-[#69daff]/10 py-1.5 text-xs font-bold text-[#69daff] transition-colors hover:bg-[#69daff]/20"
+                >
+                  <Plus size={12} />
+                  Nova Flag
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="editor-scroll-area custom-scrollbar relative flex-1 overflow-y-auto bg-[#091328]">

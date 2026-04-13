@@ -5,6 +5,17 @@ const LEGACY_GUEST_STORAGE_KEY = "codenlens_techs";
 const GUEST_DIRTY_FLAG = "codenlens_guest_dirty";
 const TECHNOLOGY_META_LESSON_ID = 0;
 const TECHNOLOGY_META_TITLE = "__technology_meta__";
+const CATEGORY_META_LESSON_ID = -1;
+const CATEGORY_META_TITLE = "__category_registry__";
+const FLAG_META_LESSON_ID = -2;
+const FLAG_META_TITLE = "__flag_registry__";
+
+export const DEFAULT_CATEGORIES = [
+  { id: "cat-minhas", name: "Minhas tecnologias", accent: "Bibliotecas personalizadas" },
+  { id: "cat-fundamentos", name: "Fundamentos", accent: "Habilidades essenciais" },
+  { id: "cat-frameworks", name: "Frameworks", accent: "UI e logica" },
+  { id: "cat-infra", name: "Infraestrutura", accent: "Sistemas e fluxo" }
+];
 
 function cloneValue(value) {
   return JSON.parse(JSON.stringify(value));
@@ -12,6 +23,12 @@ function cloneValue(value) {
 
 function normalizeArray(value) {
   return Array.isArray(value) ? cloneValue(value) : [];
+}
+
+function normalizeStringArray(value) {
+  return normalizeArray(value)
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean);
 }
 
 function clamp(value, min, max) {
@@ -156,6 +173,31 @@ function normalizeRemoteTechnologyRecord(record) {
   };
 }
 
+function normalizeLesson(lesson, fallbackId = 1) {
+  const normalizedId = Number(lesson?.id);
+  const lessonId = Number.isFinite(normalizedId) && normalizedId > 0
+    ? normalizedId
+    : fallbackId;
+
+  return {
+    ...cloneValue(lesson || {}),
+    id: lessonId,
+    title: String(lesson?.title || "").trim() || "Sem titulo",
+    summary: String(lesson?.summary || "").trim(),
+    tags: normalizeStringArray(lesson?.tags),
+    status: String(lesson?.status || "").trim() || "em-andamento",
+    highlights: normalizeStringArray(lesson?.highlights),
+    createdAt: String(lesson?.createdAt || "").trim() || new Date().toISOString().slice(0, 10),
+    fullCode: String(lesson?.fullCode || ""),
+    studyNotes: normalizeArray(lesson?.studyNotes),
+    updatedAt: lesson?.updatedAt || null,
+  };
+}
+
+function normalizeLessons(list) {
+  return normalizeArray(list).map((lesson, index) => normalizeLesson(lesson, index + 1));
+}
+
 function isTechnologyMetaEntry(entry) {
   return Number(entry?.lesson_id) === TECHNOLOGY_META_LESSON_ID
     && String(entry?.title || "").trim() === TECHNOLOGY_META_TITLE;
@@ -191,7 +233,7 @@ function normalizeTechnology(technology, index = 0) {
   const rawName = String(technology?.name || template?.name || "").trim();
   const name = rawName || `Tecnologia ${index + 1}`;
   const rawContents = Array.isArray(technology?.contents) ? technology.contents : template?.contents;
-  const contents = normalizeArray(rawContents);
+  const contents = normalizeLessons(rawContents);
   const normalizedLessons = Number(technology?.lessons);
   const rawCategory = String(technology?.category || "").trim();
   const rawCategoryAccent = String(technology?.categoryAccent || "").trim();
@@ -287,6 +329,55 @@ export function mergeRemoteTechnologies(records, cachedTechs = []) {
   return normalizeTechnologies(result);
 }
 
+export function mergeTechnologyLists(baseTechs = [], incomingTechs = []) {
+  const result = normalizeTechnologies(baseTechs);
+  const byId = new Map(result.map((technology, index) => [technology.id, index]));
+  const byName = new Map(
+    result.map((technology, index) => [String(technology.name || "").trim().toLowerCase(), index]),
+  );
+
+  for (const incomingTechnology of normalizeTechnologies(incomingTechs)) {
+    const incomingName = String(incomingTechnology.name || "").trim().toLowerCase();
+    const existingIndex = byId.get(incomingTechnology.id) ?? byName.get(incomingName);
+
+    if (existingIndex == null) {
+      byId.set(incomingTechnology.id, result.length);
+      byName.set(incomingName, result.length);
+      result.push(incomingTechnology);
+      continue;
+    }
+
+    const currentTechnology = result[existingIndex];
+    const mergedLessons = new Map(
+      normalizeArray(currentTechnology.contents).map((lesson) => [Number(lesson.id), lesson]),
+    );
+
+    for (const lesson of normalizeArray(incomingTechnology.contents)) {
+      mergedLessons.set(Number(lesson.id), lesson);
+    }
+
+    const mergedTechnology = normalizeTechnology({
+      ...currentTechnology,
+      ...incomingTechnology,
+      id: currentTechnology.id || incomingTechnology.id,
+      name: incomingTechnology.name || currentTechnology.name,
+      category: incomingTechnology.category || currentTechnology.category,
+      categoryAccent: incomingTechnology.categoryAccent || currentTechnology.categoryAccent,
+      image: incomingTechnology.image || currentTechnology.image,
+      cardLabel: incomingTechnology.cardLabel || currentTechnology.cardLabel,
+      cardTone: incomingTechnology.cardTone || currentTechnology.cardTone,
+      cardBarClass: incomingTechnology.cardBarClass || currentTechnology.cardBarClass,
+      contents: Array.from(mergedLessons.values()),
+    }, existingIndex);
+
+    result[existingIndex] = mergedTechnology;
+    byId.set(mergedTechnology.id, existingIndex);
+    byName.set(String(mergedTechnology.name || "").trim().toLowerCase(), existingIndex);
+  }
+
+  return normalizeTechnologies(result);
+}
+
 export function extractTechnologyMetadataEntries(entries) {
   return normalizeArray(entries)
     .map((entry) => parseTechnologyMetaEntry(entry))
@@ -369,6 +460,119 @@ export function readStoredTechs(storageKey) {
   }
 }
 
+export function getCategoriesStorageKey(userId) {
+  return userId ? `codenlens_categories_${userId}` : "codenlens_categories_guest";
+}
+
+export function readStoredCategories(storageKey) {
+  if (typeof window === "undefined") return DEFAULT_CATEGORIES;
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return DEFAULT_CATEGORIES;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_CATEGORIES;
+  } catch {
+    return DEFAULT_CATEGORIES;
+  }
+}
+
+export function writeStoredCategories(storageKey, categories) {
+  if (typeof window === "undefined") return { ok: false };
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(categories));
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+export function getFlagsStorageKey(userId) {
+  return userId ? `codenlens_flags_${userId}` : "codenlens_flags_guest";
+}
+
+export function readStoredFlags(storageKey) {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeStoredFlags(storageKey, flags) {
+  if (typeof window === "undefined") return { ok: false };
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(flags));
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+export function createCategoryRegistryPayload(userId, categories) {
+  return {
+    user_id: userId,
+    technology_name: "__categories__",
+    lesson_id: CATEGORY_META_LESSON_ID,
+    title: CATEGORY_META_TITLE,
+    summary: "System categories array",
+    full_code: JSON.stringify(categories),
+    study_notes: [],
+    highlights: [],
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export function createFlagRegistryPayload(userId, flags) {
+  return {
+    user_id: userId,
+    technology_name: "__flags__",
+    lesson_id: FLAG_META_LESSON_ID,
+    title: FLAG_META_TITLE,
+    summary: "System flags array",
+    full_code: JSON.stringify(flags),
+    study_notes: [],
+    highlights: [],
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export function parseCategoryRegistryEntry(entry) {
+  if (Number(entry?.lesson_id) !== CATEGORY_META_LESSON_ID || entry?.title !== CATEGORY_META_TITLE) {
+    return null;
+  }
+  try {
+    return JSON.parse(entry.full_code);
+  } catch {
+    return null;
+  }
+}
+
+export function isCategoryMetaEntry(entry) {
+  return Number(entry?.lesson_id) === CATEGORY_META_LESSON_ID
+    && String(entry?.title || "").trim() === CATEGORY_META_TITLE;
+}
+
+export function parseFlagRegistryEntry(entry) {
+  if (Number(entry?.lesson_id) !== FLAG_META_LESSON_ID || entry?.title !== FLAG_META_TITLE) {
+    return null;
+  }
+  try {
+    return JSON.parse(entry.full_code);
+  } catch {
+    return null;
+  }
+}
+
+export function isFlagMetaEntry(entry) {
+  return Number(entry?.lesson_id) === FLAG_META_LESSON_ID
+    && String(entry?.title || "").trim() === FLAG_META_TITLE;
+}
+
+
 export function hasGuestDraftData() {
   if (typeof window === "undefined") return false;
   if (localStorage.getItem(GUEST_DIRTY_FLAG) !== "1") return false;
@@ -439,7 +643,7 @@ export function mergeStudyEntries(entries, cachedTechs = []) {
   const techMap = new Map(nextTechs.map((tech) => [tech.name, tech]));
 
   for (const entry of entries || []) {
-    if (isTechnologyMetaEntry(entry)) continue;
+    if (isTechnologyMetaEntry(entry) || isCategoryMetaEntry(entry)) continue;
 
     const technologyName = String(entry?.technology_name || "").trim();
     const lessonId = Number(entry?.lesson_id);
@@ -469,7 +673,7 @@ export function mergeStudyEntries(entries, cachedTechs = []) {
     const currentLesson = lessonIndex >= 0 ? tech.contents[lessonIndex] : null;
     const hasRemoteHighlights = Object.prototype.hasOwnProperty.call(entry || {}, "highlights");
 
-    const mergedLesson = {
+    const mergedLesson = normalizeLesson({
       id: lessonId,
       title: entry?.title ?? currentLesson?.title ?? "Sem titulo",
       summary: entry?.summary ?? currentLesson?.summary ?? "",
@@ -482,13 +686,10 @@ export function mergeStudyEntries(entries, cachedTechs = []) {
       fullCode: entry?.full_code ?? currentLesson?.fullCode ?? "",
       studyNotes: normalizeArray(entry?.study_notes),
       updatedAt: entry?.updated_at || currentLesson?.updatedAt || null,
-    };
+    }, lessonId);
 
     if (lessonIndex >= 0) {
-      tech.contents[lessonIndex] = {
-        ...currentLesson,
-        ...mergedLesson,
-      };
+      tech.contents[lessonIndex] = mergedLesson;
     } else {
       tech.contents.unshift(mergedLesson);
     }

@@ -2,70 +2,46 @@ import { createElement, useMemo, useRef, useState } from "react";
 import {
   Bell,
   BookMarked,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   FileText,
   HelpCircle,
   LayoutDashboard,
+  LayoutGrid,
+  List,
+  AlignJustify,
   Pencil,
   Plus,
   Search,
   Settings,
   Shield,
+  Tag,
   UserCircle2,
 } from "lucide-react";
 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+import GoogleMark from "../shared/GoogleMark";
+import { getAvatarFallback, getAvatarUrl } from "../../utils/authUi";
 import TechnologyArtwork from "./TechnologyArtwork";
+import FlagManagerModal from "./FlagManagerModal";
 
-const SECTION_ORDER = ["Fundamentos", "Frameworks", "Infraestrutura", "Minhas tecnologias"];
-
-function GoogleMark({ className = "" }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        d="M21.805 10.023H12.24v3.955h5.478c-.236 1.274-.955 2.353-2.032 3.079v2.56h3.294c1.929-1.776 3.04-4.395 3.04-7.305 0-.691-.06-1.363-.215-2.289Z"
-        fill="#4285F4"
-      />
-      <path
-        d="M12.24 22c2.743 0 5.045-.907 6.727-2.383l-3.294-2.56c-.907.611-2.068.974-3.433.974-2.652 0-4.903-1.79-5.711-4.2H3.131v2.64A10.16 10.16 0 0 0 12.24 22Z"
-        fill="#34A853"
-      />
-      <path
-        d="M6.529 13.83a6.107 6.107 0 0 1 0-3.858V7.332H3.131a10.16 10.16 0 0 0 0 9.139l3.398-2.64Z"
-        fill="#FBBC04"
-      />
-      <path
-        d="M12.24 5.79c1.494 0 2.82.514 3.865 1.523l2.897-2.897C17.28 2.81 14.979 2 12.24 2A10.16 10.16 0 0 0 3.131 7.332l3.398 2.64c.808-2.41 3.06-4.182 5.711-4.182Z"
-        fill="#EA4335"
-      />
-    </svg>
-  );
-}
-
-function getAvatarUrl(authUser) {
-  return String(
-    authUser?.user_metadata?.avatar_url
-      || authUser?.user_metadata?.picture
-      || authUser?.user_metadata?.photo_url
-      || "",
-  ).trim();
-}
-
-function getAvatarFallback(authUser) {
-  const source = String(
-    authUser?.user_metadata?.full_name
-      || authUser?.user_metadata?.name
-      || authUser?.email
-      || "C",
-  ).trim();
-
-  return source.charAt(0).toUpperCase() || "C";
-}
 
 function getSectionAccent(category, fallback) {
   const map = {
@@ -90,7 +66,7 @@ function getBadgeClasses(tone) {
   return map[tone] || map.sky;
 }
 
-function getTechnologyGroups(technologies, searchTerm) {
+function getTechnologyGroups(technologies, searchTerm, categoryList = []) {
   const query = String(searchTerm || "").trim().toLowerCase();
 
   const filtered = !query
@@ -130,9 +106,12 @@ function getTechnologyGroups(technologies, searchTerm) {
     groupedMap.get(category).items.push(technology);
   });
 
+  const fallbackOrder = ["Minhas tecnologias", "Fundamentos", "Frameworks", "Infraestrutura"];
+  const finalOrder = categoryList?.length ? categoryList.map(c => c.name) : fallbackOrder;
+
   return Array.from(groupedMap.values()).sort((left, right) => {
-    const leftIndex = SECTION_ORDER.indexOf(left.category);
-    const rightIndex = SECTION_ORDER.indexOf(right.category);
+    const leftIndex = finalOrder.indexOf(left.category);
+    const rightIndex = finalOrder.indexOf(right.category);
 
     if (leftIndex === -1 && rightIndex === -1) return left.category.localeCompare(right.category);
     if (leftIndex === -1) return 1;
@@ -219,20 +198,49 @@ function TechnologyCard({
           {contentCount} conteudos • {technology.categoryAccent || "Biblioteca personalizada"}
         </p>
 
-        <div className="space-y-2">
-          <div className="flex justify-between font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#a3aac4]">
-            <span>Biblioteca</span>
-            <span>{contentCount}</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#192540]">
-            <div
-              className={`h-full rounded-full ${technology.cardBarClass || "bg-[#69daff]"}`}
-              style={{ width: `${trackWidth}%` }}
-            />
-          </div>
-        </div>
+
       </button>
     </article>
+  );
+}
+
+function TechnologyListItem({ technology, onOpen }) {
+  return (
+    <button onClick={() => onOpen(technology)} className="flex w-full items-center gap-3 xl:w-64 rounded-lg border border-[#40485d]/20 bg-[#0f1930] px-4 py-3 transition-colors hover:bg-[#141f38] hover:border-[#69daff]/30 text-left">
+      <TechnologyArtwork technology={technology} className="h-8 w-8 rounded bg-black flex-shrink-0 border-0" />
+      <span className="font-['Manrope'] text-sm font-bold text-[#dee5ff] truncate">{technology.name}</span>
+    </button>
+  );
+}
+
+function TechnologyDetailItem({ technology, maxContentCount, onEdit, onOpen }) {
+  const contentCount = technology.contents?.length || 0;
+  const trackWidth = maxContentCount ? Math.max(8, Math.round((contentCount / maxContentCount) * 100)) : 8;
+
+  return (
+    <div className="flex w-full items-center gap-4 rounded-lg border border-[#40485d]/10 bg-[#0f1930] p-4 transition-colors hover:bg-[#141f38] group">
+      <button type="button" onClick={() => onOpen(technology)} className="flex flex-1 items-center gap-4 text-left min-w-0">
+        <TechnologyArtwork technology={technology} className="h-10 w-10 sm:h-12 sm:w-12 rounded-md bg-black flex-shrink-0 border-0" />
+        <div className="flex flex-1 flex-col truncate">
+          <h4 className="font-['Manrope'] text-sm sm:text-base font-bold text-[#dee5ff] truncate">{technology.name}</h4>
+          <span className="text-[10px] sm:text-xs text-[#a3aac4] truncate">{contentCount} conteudos • {technology.categoryAccent || "Personalizado"}</span>
+        </div>
+      </button>
+
+      <div className="hidden w-32 xl:w-64 shrink-0 flex-col gap-1.5 md:flex mr-4">
+         <div className="flex justify-between font-['Manrope'] text-[9px] font-bold uppercase tracking-[0.15em] text-[#a3aac4]">
+            <span>Progresso</span>
+            <span>{contentCount}</span>
+         </div>
+         <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#192540]">
+           <div className={`h-full rounded-full ${technology.cardBarClass || "bg-[#69daff]"}`} style={{ width: `${trackWidth}%` }} />
+         </div>
+      </div>
+
+      <button type="button" onClick={() => onEdit(technology)} className="ml-auto flex shrink-0 h-8 w-8 items-center justify-center rounded-md border border-[#40485d]/30 bg-[#141f38] text-[#a3aac4] transition-colors hover:border-[#69daff]/40 hover:text-[#69daff]" aria-label="Editar">
+        <Pencil className="h-4 w-4" />
+      </button>
+    </div>
   );
 }
 
@@ -241,15 +249,28 @@ function SectionRail({
   maxContentCount,
   onEditTechnology,
   onOpenTechnology,
+  displayMode = "cards",
 }) {
   const trackRef = useRef(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
     <section className="group/section relative mb-14 last:mb-6">
       <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-end gap-x-3">
-          <h3 className="font-['Manrope'] text-xl font-bold text-[#dee5ff]">{group.category}</h3>
-          <span className="mb-1 font-['Manrope'] text-[10px] uppercase tracking-[0.2em] text-[#00c0ea]">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <button 
+            type="button" 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="group/collapse flex items-center gap-2 outline-none p-1 -ml-1 rounded-lg transition-colors hover:bg-white/5"
+          >
+            <h3 className="font-['Manrope'] text-xl font-bold text-[#dee5ff] transition-colors group-hover/collapse:text-[#69daff]">
+              {group.category}
+            </h3>
+            <div className={`flex h-5 w-5 items-center justify-center rounded-full border border-white/10 transition-transform duration-300 ${isCollapsed ? "-rotate-90" : "rotate-0"} text-slate-400 group-hover/collapse:border-[#69daff]/30 group-hover/collapse:text-[#69daff]`}>
+              <ChevronDown className="h-3 w-3" />
+            </div>
+          </button>
+          <span className="mb-1 hidden font-['Manrope'] text-[10px] uppercase tracking-[0.2em] text-[#00c0ea] sm:inline-block">
             {group.accent}
           </span>
         </div>
@@ -258,43 +279,99 @@ function SectionRail({
         </button>
       </div>
 
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => trackRef.current?.scrollBy({ left: -348, behavior: "smooth" })}
-          className="dashboard-nav-arrow absolute left-0 top-1/2 z-20 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#40485d]/30 text-[#a3aac4] opacity-0 shadow-xl group-hover/section:opacity-100"
-          aria-label={`Voltar em ${group.category}`}
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
+      {!isCollapsed && (
+        <div className="relative">
+        {displayMode === "cards" && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => trackRef.current?.scrollBy({ left: -348, behavior: "smooth" })}
+              className="dashboard-nav-arrow absolute left-0 top-1/2 z-20 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#40485d]/30 text-[#a3aac4] opacity-0 shadow-xl group-hover/section:opacity-100"
+              aria-label={`Voltar em ${group.category}`}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+    
+            <button
+              type="button"
+              onClick={() => trackRef.current?.scrollBy({ left: 348, behavior: "smooth" })}
+              className="dashboard-nav-arrow absolute right-0 top-1/2 z-20 flex h-10 w-10 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#40485d]/30 text-[#a3aac4] opacity-0 shadow-xl group-hover/section:opacity-100"
+              aria-label={`Avancar em ${group.category}`}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
 
-        <button
-          type="button"
-          onClick={() => trackRef.current?.scrollBy({ left: 348, behavior: "smooth" })}
-          className="dashboard-nav-arrow absolute right-0 top-1/2 z-20 flex h-10 w-10 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#40485d]/30 text-[#a3aac4] opacity-0 shadow-xl group-hover/section:opacity-100"
-          aria-label={`Avancar em ${group.category}`}
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+            <div
+              ref={(node) => {
+                trackRef.current = node;
+              }}
+              className="dashboard-track flex gap-x-6 overflow-x-auto pb-4 pl-2 pr-2"
+            >
+            {group.items.map((technology) => (
+              <TechnologyCard
+                key={technology.id}
+                maxContentCount={maxContentCount}
+                onEdit={onEditTechnology}
+                onOpen={onOpenTechnology}
+                technology={technology}
+              />
+            ))}
+          </div>
+          </div>
+        )}
 
-        <div
-          ref={(node) => {
-            trackRef.current = node;
-          }}
-          className="dashboard-track flex gap-x-6 overflow-x-auto pb-4 pl-2 pr-2"
-        >
-          {group.items.map((technology) => (
-            <TechnologyCard
-              key={technology.id}
-              maxContentCount={maxContentCount}
-              onEdit={onEditTechnology}
-              onOpen={onOpenTechnology}
-              technology={technology}
-            />
-          ))}
+        {displayMode === "list" && (
+          <div className="flex flex-row flex-wrap gap-4 pl-2 pr-2 pb-4">
+            {group.items.map((technology) => (
+              <TechnologyListItem
+                key={technology.id}
+                onOpen={onOpenTechnology}
+                technology={technology}
+              />
+            ))}
+          </div>
+        )}
+
+        {displayMode === "details" && (
+          <div className="flex flex-col gap-3 pl-2 pr-2 pb-4">
+            {group.items.map((technology) => (
+              <TechnologyDetailItem
+                key={technology.id}
+                maxContentCount={maxContentCount}
+                onEdit={onEditTechnology}
+                onOpen={onOpenTechnology}
+                technology={technology}
+              />
+            ))}
+          </div>
+        )}
         </div>
-      </div>
+      )}
     </section>
+  );
+}
+
+function SortableSectionRail({ id, group, ...props }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative group/sortable-rail">
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute -left-10 top-2 z-[30] flex h-8 w-8 cursor-grab items-center justify-center rounded text-[#40485d] opacity-0 transition-opacity hover:bg-[#141f38] hover:text-[#69daff] active:cursor-grabbing group-hover/sortable-rail:opacity-100 xl:flex hidden"
+        title="Arraste para reordenar esta categoria"
+      >
+        <LayoutDashboard className="h-4 w-4" />
+      </div>
+        <SectionRail group={group} displayMode={props.displayMode} {...props} />
+    </div>
   );
 }
 
@@ -302,19 +379,42 @@ export default function DashboardHome({
   authUser,
   onCreateTechnology,
   onEditTechnology,
+  onManageCategories,
   onOpenAccount,
   onSelectTechnology,
   onSignInWithGoogle,
   setActiveTechnology,
   supabaseConfigured,
   technologies,
+  categories,
+  flags,
+  onSyncStructure,
 }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [displayMode, setDisplayMode] = useState("cards");
+  const [isFlagManagerOpen, setIsFlagManagerOpen] = useState(false);
 
   const groupedTechnologies = useMemo(
-    () => getTechnologyGroups(technologies, searchTerm),
-    [technologies, searchTerm],
+    () => getTechnologyGroups(technologies, searchTerm, categories),
+    [technologies, searchTerm, categories],
   );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = categories.findIndex((item) => `rail-${item.name}` === active.id);
+      const newIndex = categories.findIndex((item) => `rail-${item.name}` === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        onSyncStructure(null, arrayMove(categories, oldIndex, newIndex));
+      }
+    }
+  };
 
   const maxContentCount = useMemo(
     () => Math.max(...technologies.map((technology) => technology.contents?.length || 0), 1),
@@ -353,6 +453,16 @@ export default function DashboardHome({
                 openTechnology(technologies[0]);
               }
             }}
+          />
+          <SidebarItem
+            icon={LayoutDashboard}
+            label="Categorias"
+            onClick={onManageCategories}
+          />
+          <SidebarItem
+            icon={Tag}
+            label="Filtrar por Flags"
+            onClick={() => setIsFlagManagerOpen(true)}
           />
           <SidebarItem
             icon={UserCircle2}
@@ -449,25 +559,69 @@ export default function DashboardHome({
       </header>
 
       <main className="relative z-10 min-h-screen bg-[#060e20] px-4 pb-12 pt-20 sm:px-6 lg:ml-64 lg:px-10">
-        <header className="mb-12">
-          <h2 className="font-['Manrope'] text-4xl font-extrabold tracking-tighter text-[#dee5ff]">
-            Radar de tecnologias
-          </h2>
-          <p className="mt-2 max-w-2xl text-[#a3aac4]">
-            Organize suas bibliotecas de estudo e acompanhe a evolucao do que voce esta dominando.
-          </p>
+        <header className="mb-12 flex flex-col items-start justify-between gap-y-4 sm:flex-row sm:items-end">
+          <div>
+            <h2 className="font-['Manrope'] text-4xl font-extrabold tracking-tighter text-[#dee5ff]">
+              Radar de tecnologias
+            </h2>
+            <p className="mt-2 text-sm text-[#a3aac4]">
+              Organize suas bibliotecas de estudo e acompanhe a evolucao do que voce esta dominando.
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-[#40485d]/30 bg-[#0f1930] p-1">
+            <button
+              onClick={() => setDisplayMode("cards")}
+              className={`flex h-8 w-10 items-center justify-center rounded-md transition-all ${
+                displayMode === "cards" 
+                  ? "bg-[#1d2b4b] text-[#69daff] shadow-sm" 
+                  : "text-[#6d758c] hover:text-[#a3aac4] hover:bg-white/5"
+              }`}
+              title="Visão com Cartões Grandes"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setDisplayMode("list")}
+              className={`flex h-8 w-10 items-center justify-center rounded-md transition-all ${
+                displayMode === "list" 
+                  ? "bg-[#1d2b4b] text-[#69daff] shadow-sm" 
+                  : "text-[#6d758c] hover:text-[#a3aac4] hover:bg-white/5"
+              }`}
+              title="Lista Minimalista"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setDisplayMode("details")}
+              className={`flex h-8 w-10 items-center justify-center rounded-md transition-all ${
+                displayMode === "details" 
+                  ? "bg-[#1d2b4b] text-[#69daff] shadow-sm" 
+                  : "text-[#6d758c] hover:text-[#a3aac4] hover:bg-white/5"
+              }`}
+              title="Detalhes e Edição Rápida"
+            >
+              <AlignJustify className="h-4 w-4" />
+            </button>
+          </div>
         </header>
 
         {groupedTechnologies.length ? (
-          groupedTechnologies.map((group) => (
-            <SectionRail
-              key={group.category}
-              group={group}
-              maxContentCount={maxContentCount}
-              onEditTechnology={onEditTechnology}
-              onOpenTechnology={openTechnology}
-            />
-          ))
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={groupedTechnologies.map(g => `rail-${g.category}`)} strategy={verticalListSortingStrategy}>
+              {groupedTechnologies.map((group) => (
+                <SortableSectionRail
+                  id={`rail-${group.category}`}
+                  key={`rail-${group.category}`}
+                  group={group}
+                  displayMode={displayMode}
+                  maxContentCount={maxContentCount}
+                  onEditTechnology={onEditTechnology}
+                  onOpenTechnology={openTechnology}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         ) : (
           <section className="rounded-xl border border-[#40485d]/10 bg-[#0f1930] px-6 py-16 text-center">
             <p className="font-['Manrope'] text-lg font-bold text-[#dee5ff]">
@@ -479,6 +633,14 @@ export default function DashboardHome({
           </section>
         )}
       </main>
+
+      <FlagManagerModal
+        isOpen={isFlagManagerOpen}
+        onClose={() => setIsFlagManagerOpen(false)}
+        flags={flags || []}
+        technologies={technologies}
+        onSyncStructure={onSyncStructure}
+      />
     </div>
   );
 }

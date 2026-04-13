@@ -9,6 +9,15 @@ import {
   supabaseStudyEntriesTable,
 } from "./supabase";
 import {
+  DEFAULT_CATEGORIES,
+  getCategoriesStorageKey,
+  getFlagsStorageKey,
+  readStoredCategories,
+  readStoredFlags,
+  writeStoredCategories,
+  writeStoredFlags,
+  createCategoryRegistryPayload,
+  parseCategoryRegistryEntry,
   clearStoredTechs,
   createTechnologyMetadataPayload,
   createTechnologyId,
@@ -18,6 +27,7 @@ import {
   getFriendlySyncError,
   getStorageKey,
   hasGuestDraftData,
+  mergeTechnologyLists,
   mergeRemoteTechnologies,
   mergeStudyEntries,
   readStoredTechs,
@@ -25,6 +35,7 @@ import {
 } from "./studySync";
 import DashboardHome from "./components/home/DashboardHome";
 import TechnologyModal from "./components/home/TechnologyModal";
+import CategoryManagerModal from "./components/home/CategoryManagerModal";
 import DevBriefPanel from "./components/devbrief/DevBriefPanel";
 import StudyRoom from "./components/study/StudyRoom";
 import TechnologyContentsList from "./components/home/TechnologyContentsList";
@@ -111,7 +122,11 @@ function App() {
   const [showAccountPanel, setShowAccountPanel] = useState(false);
 
   const storageKey = getStorageKey(authUser?.id);
+  const categoriesKey = getCategoriesStorageKey(authUser?.id);
+  const flagsKey = getFlagsStorageKey(authUser?.id);
 
+  const [categoryList, setCategoryList] = useState(() => readStoredCategories(getCategoriesStorageKey()));
+  const [flagList, setFlagList] = useState(() => readStoredFlags(getFlagsStorageKey()));
   const [techList, setTechList] = useState(() => readStoredTechs(getStorageKey()));
   const [activeTechnology, setActiveTechnology] = useState(() => readStoredTechs(getStorageKey())[0] || technologies[0]);
   const [activeLesson, setActiveLesson] = useState(null);
@@ -124,6 +139,7 @@ function App() {
     mode: "create",
     technology: null,
   });
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const techListRef = useRef(techList);
 
   const navigateTo = (view, options = {}) => {
@@ -176,6 +192,32 @@ function App() {
     return result;
   };
 
+  const handleStructuralSync = async (nextTechs, nextCategories, nextFlags) => {
+    if (nextTechs) {
+      applyTechList(nextTechs);
+      persistTechListNow(nextTechs);
+    }
+    if (nextCategories) {
+      setCategoryList(nextCategories);
+      writeStoredCategories(getCategoriesStorageKey(authUser?.id), nextCategories);
+    }
+    if (nextFlags) {
+      setFlagList(nextFlags);
+      writeStoredFlags(getFlagsStorageKey(authUser?.id), nextFlags);
+    }
+
+    const syncTechs = nextTechs || techList;
+    const syncCats = nextCategories || categoryList;
+
+    if (supabaseConfigured && supabase && authUser?.id) {
+      try {
+        await syncRemoteTechnologies(authUser.id, syncTechs, syncCats);
+      } catch (error) {
+        console.warn("Falha na sincronização estrutural (categorias/tecnologias):", error);
+      }
+    }
+  };
+
   const openCreateTechnologyModal = () => {
     setTechnologyModal({
       open: true,
@@ -219,10 +261,15 @@ function App() {
     }
   };
 
-  const syncRemoteTechnologies = async (userId, nextTechs) => {
+  const syncRemoteTechnologies = async (userId, nextTechs, nextCategories) => {
     if (!supabaseConfigured || !supabase || !userId) return;
 
     const payload = nextTechs.map((technology, index) => createTechnologyMetadataPayload(userId, technology, index));
+    
+    if (nextCategories) {
+      payload.push(createCategoryRegistryPayload(userId, nextCategories));
+    }
+
     const { error } = await runRemoteQuery(supabase
       .from(supabaseStudyEntriesTable)
       .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" }));
@@ -235,9 +282,10 @@ function App() {
     if (!hasGuestDraftData()) return false;
 
     const guestTechs = readStoredTechs(getStorageKey());
+    const guestCategories = readStoredCategories(getCategoriesStorageKey());
     const modifiedLessons = extractModifiedLessons(guestTechs);
 
-    await syncRemoteTechnologies(user.id, guestTechs);
+    await syncRemoteTechnologies(user.id, guestTechs, guestCategories);
 
     if (modifiedLessons.length) {
       const payload = modifiedLessons.map(({ technologyName, lesson }) =>
@@ -262,10 +310,21 @@ function App() {
     }
 
     const { migrateGuest = false } = options;
+    const guestDraftTechs = migrateGuest && hasGuestDraftData()
+      ? readStoredTechs(getStorageKey())
+      : [];
     setSyncNotice("Carregando seus blocos salvos...");
 
     try {
-      const cachedUserTechs = readStoredTechs(getStorageKey(user.id));
+      const cachedUserTechs = guestDraftTechs.length
+        ? mergeTechnologyLists(readStoredTechs(getStorageKey(user.id)), guestDraftTechs)
+        : readStoredTechs(getStorageKey(user.id));
+      const cachedCategories = readStoredCategories(getCategoriesStorageKey(user.id));
+      
+      // Update the UI immediately with whatever is in the local cache before waiting for the network
+      applyTechList(cachedUserTechs);
+      setCategoryList(cachedCategories);
+
       let remoteEntries = [];
       let { data, error } = await runRemoteQuery(supabase
         .from(supabaseStudyEntriesTable)
@@ -276,7 +335,7 @@ function App() {
       if (error) throw error;
       remoteEntries = data || [];
 
-      if (migrateGuest && remoteEntries.length === 0 && hasGuestDraftData()) {
+      if (guestDraftTechs.length) {
         setSyncNotice("Migrando seus dados locais para a conta Google...");
         const migrated = await migrateGuestStudyToCloud(user);
 
@@ -292,6 +351,12 @@ function App() {
         }
       }
 
+      const remoteCategoriesEntry = remoteEntries.find(entry => parseCategoryRegistryEntry(entry) !== null);
+      if (remoteCategoriesEntry) {
+        setCategoryList(parseCategoryRegistryEntry(remoteCategoriesEntry));
+        writeStoredCategories(getCategoriesStorageKey(user.id), parseCategoryRegistryEntry(remoteCategoriesEntry));
+      }
+
       const mergedBase = mergeRemoteTechnologies(
         extractTechnologyMetadataEntries(remoteEntries || []),
         cachedUserTechs,
@@ -303,7 +368,13 @@ function App() {
       setLastSyncedAt(new Date().toISOString());
       setAuthError("");
     } catch (error) {
-      loadLocalTechList(user.id);
+      if (guestDraftTechs.length) {
+        const fallbackTechs = mergeTechnologyLists(readStoredTechs(getStorageKey(user.id)), guestDraftTechs);
+        applyTechList(fallbackTechs);
+        writeStoredTechs(getStorageKey(user.id), fallbackTechs);
+      } else {
+        loadLocalTechList(user.id);
+      }
       setAuthError(getFriendlySyncError(error));
       setSyncNotice("Falha na nuvem. Usando o cache local deste dispositivo.");
     }
@@ -356,6 +427,10 @@ function App() {
       setSyncNotice("A imagem ficou grande demais para o armazenamento local. Tente um arquivo menor.");
     }
   }, [authChecked, storageKey, techList]);
+
+  useEffect(() => {
+    writeStoredCategories(categoriesKey, categoryList);
+  }, [categoryList, categoriesKey]);
 
   useEffect(() => {
     if (activeTechnology) {
@@ -435,7 +510,7 @@ function App() {
             ...tech,
             name: nextName,
             image: sanitizedImage,
-            category: tech.category || "Minhas tecnologias",
+            category: technologyDraft.category || tech.category || "Minhas tecnologias",
             categoryAccent: tech.categoryAccent || "Conteúdos organizados",
           }
           : tech
@@ -459,14 +534,14 @@ function App() {
         setSyncNotice("Tecnologia atualizada neste dispositivo.");
       }
 
-      return { ok: true };
+      return { ok: true, createdTechnology: null };
     }
 
     const nextTechnology = {
       id: createTechnologyId(nextName),
       name: nextName,
       image: sanitizedImage,
-      category: "Minhas tecnologias",
+      category: technologyDraft?.category || "Minhas tecnologias",
       categoryAccent: "Conteúdos organizados",
       progress: 0,
       lessons: 0,
@@ -480,8 +555,8 @@ function App() {
     const nextTechList = [nextTechnology, ...techList];
     applyTechList(nextTechList);
     persistTechListNow(nextTechList);
-    navigateTo(VIEW_HOME, {
-      historyMode: "replace",
+    navigateTo(VIEW_TECH_LIST, {
+      historyMode: "push",
       technology: nextTechnology,
     });
 
@@ -499,7 +574,7 @@ function App() {
     } else {
       setSyncNotice("Tecnologia adicionada neste dispositivo.");
     }
-    return { ok: true };
+    return { ok: true, createdTechnology: nextTechnology };
   };
 
   const handleDeleteTechnology = async (technologyToDelete) => {
@@ -542,6 +617,55 @@ function App() {
     return { ok: true };
   };
 
+  const handleDeleteContent = async (technologyId, lessonId) => {
+    const targetTechnology = techList.find((tech) => tech.id === technologyId);
+    const targetLesson = targetTechnology?.contents.find((lesson) => lesson.id === lessonId);
+
+    if (!targetTechnology || !targetLesson) {
+      return { ok: false, error: "Conteudo nao encontrado para exclusao." };
+    }
+
+    if (supabaseConfigured && supabase && authUser?.id) {
+      try {
+        setSyncNotice("Excluindo conteudo na nuvem...");
+        const { error } = await runRemoteQuery(supabase
+          .from(supabaseStudyEntriesTable)
+          .delete()
+          .eq("user_id", authUser.id)
+          .eq("technology_name", targetTechnology.name)
+          .eq("lesson_id", lessonId));
+
+        if (error) throw error;
+
+        setLastSyncedAt(new Date().toISOString());
+        setAuthError("");
+      } catch (error) {
+        return { ok: false, error: getFriendlySyncError(error) };
+      }
+    }
+
+    const nextTechList = techList.map((tech) => {
+      if (tech.id !== technologyId) return tech;
+
+      const nextContents = tech.contents.filter((lesson) => lesson.id !== lessonId);
+      return {
+        ...tech,
+        contents: nextContents,
+        lessons: nextContents.length,
+      };
+    });
+
+    applyTechList(nextTechList);
+    setActiveLesson((current) => (current?.id === lessonId ? null : current));
+    setSyncNotice(
+      authUser
+        ? "Conteudo excluido e sincronizado com sua conta Google."
+        : "Conteudo excluido deste dispositivo.",
+    );
+
+    return { ok: true };
+  };
+
   /* eslint-disable react-hooks/exhaustive-deps -- auth bootstrap is intentionally mounted once. */
   useEffect(() => {
     if (!supabaseConfigured || !supabase) {
@@ -570,7 +694,6 @@ function App() {
       setAuthUser(nextUser);
 
       if (nextUser) {
-        loadLocalTechList(nextUser.id);
         await syncRemoteStudy(nextUser, { migrateGuest: true });
       } else {
         loadLocalTechList();
@@ -603,7 +726,6 @@ function App() {
       }
 
       if (nextUser) {
-        loadLocalTechList(nextUser.id);
         await syncRemoteStudy(nextUser, { migrateGuest: true });
       } else {
         loadLocalTechList();
@@ -776,6 +898,7 @@ function App() {
           onCreateTechnology={openCreateTechnologyModal}
           onEditTechnology={openEditTechnologyModal}
           onOpenAccount={() => setShowAccountPanel(true)}
+          onManageCategories={() => setIsCategoryManagerOpen(true)}
           onSelectTechnology={(technology) => {
             navigateTo(VIEW_TECH_LIST, { technology });
           }}
@@ -783,6 +906,9 @@ function App() {
           setActiveTechnology={setActiveTechnology}
           supabaseConfigured={supabaseConfigured}
           technologies={techList}
+          categories={categoryList}
+          flags={flagList}
+          onSyncStructure={handleStructuralSync}
         />
       ) : null}
 
@@ -791,7 +917,9 @@ function App() {
            key={resolvedActiveTechnology?.id || "tech-list"}
            activeTechnology={resolvedActiveTechnology}
            authUser={authUser}
-            onBack={() => navigateTo(VIEW_HOME)}
+           flags={flagList}
+           onBack={() => navigateTo(VIEW_HOME)}
+           onDeleteContent={handleDeleteContent}
            onEditTechnology={openEditTechnologyModal}
            onOpenAccount={() => setShowAccountPanel(true)}
            onOpenStudyRoom={(lesson) => {
@@ -808,9 +936,11 @@ function App() {
       {resolvedView === VIEW_STUDY && (
         <StudyRoom 
           key={activeLesson?.id || "study-room"}
-          activeTechnology={resolvedActiveTechnology}
+          activeTechnology={activeTechnology}
           activeLesson={activeLesson}
           authUser={authUser}
+          flags={flagList}
+          onSyncStructure={handleStructuralSync}
           onBack={() => navigateTo(VIEW_TECH_LIST, { technology: resolvedActiveTechnology })}
           onOpenAccount={() => setShowAccountPanel(true)}
           onOpenDevBrief={(code) => {
@@ -839,7 +969,23 @@ function App() {
         onClose={closeTechnologyModal}
         onDelete={handleDeleteTechnology}
         onSave={handleSaveTechnology}
+        categoryList={categoryList}
+        onProceedToEditor={(createdTech) => {
+          closeTechnologyModal();
+          navigateTo(VIEW_STUDY, { technology: createdTech, lesson: null });
+        }}
       />
+
+      {isCategoryManagerOpen && (
+        <CategoryManagerModal
+          isOpen={isCategoryManagerOpen}
+          onClose={() => setIsCategoryManagerOpen(false)}
+          categoryList={categoryList}
+          technologies={techList}
+          flags={flagList}
+          onSyncStructure={handleStructuralSync}
+        />
+      )}
 
       {showAccountPanel && authUser ? (
         <AccountPanel
