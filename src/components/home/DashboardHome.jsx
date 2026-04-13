@@ -288,8 +288,8 @@ function SectionRail({
         </button>
       </div>
 
-
-
+      {!isCollapsed && (
+        <div className="relative">
         {displayMode === "cards" && (
           <div className="relative">
             <button
@@ -354,7 +354,7 @@ function SectionRail({
             ))}
           </div>
         )}
-      </div>
+        </div>
       )}
     </section>
   );
