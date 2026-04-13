@@ -14,6 +14,12 @@ function normalizeArray(value) {
   return Array.isArray(value) ? cloneValue(value) : [];
 }
 
+function normalizeStringArray(value) {
+  return normalizeArray(value)
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean);
+}
+
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
@@ -156,6 +162,31 @@ function normalizeRemoteTechnologyRecord(record) {
   };
 }
 
+function normalizeLesson(lesson, fallbackId = 1) {
+  const normalizedId = Number(lesson?.id);
+  const lessonId = Number.isFinite(normalizedId) && normalizedId > 0
+    ? normalizedId
+    : fallbackId;
+
+  return {
+    ...cloneValue(lesson || {}),
+    id: lessonId,
+    title: String(lesson?.title || "").trim() || "Sem titulo",
+    summary: String(lesson?.summary || "").trim(),
+    tags: normalizeStringArray(lesson?.tags),
+    status: String(lesson?.status || "").trim() || "em-andamento",
+    highlights: normalizeStringArray(lesson?.highlights),
+    createdAt: String(lesson?.createdAt || "").trim() || new Date().toISOString().slice(0, 10),
+    fullCode: String(lesson?.fullCode || ""),
+    studyNotes: normalizeArray(lesson?.studyNotes),
+    updatedAt: lesson?.updatedAt || null,
+  };
+}
+
+function normalizeLessons(list) {
+  return normalizeArray(list).map((lesson, index) => normalizeLesson(lesson, index + 1));
+}
+
 function isTechnologyMetaEntry(entry) {
   return Number(entry?.lesson_id) === TECHNOLOGY_META_LESSON_ID
     && String(entry?.title || "").trim() === TECHNOLOGY_META_TITLE;
@@ -191,7 +222,7 @@ function normalizeTechnology(technology, index = 0) {
   const rawName = String(technology?.name || template?.name || "").trim();
   const name = rawName || `Tecnologia ${index + 1}`;
   const rawContents = Array.isArray(technology?.contents) ? technology.contents : template?.contents;
-  const contents = normalizeArray(rawContents);
+  const contents = normalizeLessons(rawContents);
   const normalizedLessons = Number(technology?.lessons);
   const rawCategory = String(technology?.category || "").trim();
   const rawCategoryAccent = String(technology?.categoryAccent || "").trim();
@@ -469,7 +500,7 @@ export function mergeStudyEntries(entries, cachedTechs = []) {
     const currentLesson = lessonIndex >= 0 ? tech.contents[lessonIndex] : null;
     const hasRemoteHighlights = Object.prototype.hasOwnProperty.call(entry || {}, "highlights");
 
-    const mergedLesson = {
+    const mergedLesson = normalizeLesson({
       id: lessonId,
       title: entry?.title ?? currentLesson?.title ?? "Sem titulo",
       summary: entry?.summary ?? currentLesson?.summary ?? "",
@@ -482,13 +513,10 @@ export function mergeStudyEntries(entries, cachedTechs = []) {
       fullCode: entry?.full_code ?? currentLesson?.fullCode ?? "",
       studyNotes: normalizeArray(entry?.study_notes),
       updatedAt: entry?.updated_at || currentLesson?.updatedAt || null,
-    };
+    }, lessonId);
 
     if (lessonIndex >= 0) {
-      tech.contents[lessonIndex] = {
-        ...currentLesson,
-        ...mergedLesson,
-      };
+      tech.contents[lessonIndex] = mergedLesson;
     } else {
       tech.contents.unshift(mergedLesson);
     }

@@ -15,57 +15,11 @@ import {
   UserCircle2,
 } from "lucide-react";
 
+import GoogleMark from "../shared/GoogleMark";
+import { getAvatarFallback, getAvatarUrl } from "../../utils/authUi";
 import TechnologyArtwork from "./TechnologyArtwork";
 
 const SECTION_ORDER = ["Fundamentos", "Frameworks", "Infraestrutura", "Minhas tecnologias"];
-
-function GoogleMark({ className = "" }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        d="M21.805 10.023H12.24v3.955h5.478c-.236 1.274-.955 2.353-2.032 3.079v2.56h3.294c1.929-1.776 3.04-4.395 3.04-7.305 0-.691-.06-1.363-.215-2.289Z"
-        fill="#4285F4"
-      />
-      <path
-        d="M12.24 22c2.743 0 5.045-.907 6.727-2.383l-3.294-2.56c-.907.611-2.068.974-3.433.974-2.652 0-4.903-1.79-5.711-4.2H3.131v2.64A10.16 10.16 0 0 0 12.24 22Z"
-        fill="#34A853"
-      />
-      <path
-        d="M6.529 13.83a6.107 6.107 0 0 1 0-3.858V7.332H3.131a10.16 10.16 0 0 0 0 9.139l3.398-2.64Z"
-        fill="#FBBC04"
-      />
-      <path
-        d="M12.24 5.79c1.494 0 2.82.514 3.865 1.523l2.897-2.897C17.28 2.81 14.979 2 12.24 2A10.16 10.16 0 0 0 3.131 7.332l3.398 2.64c.808-2.41 3.06-4.182 5.711-4.182Z"
-        fill="#EA4335"
-      />
-    </svg>
-  );
-}
-
-function getAvatarUrl(authUser) {
-  return String(
-    authUser?.user_metadata?.avatar_url
-      || authUser?.user_metadata?.picture
-      || authUser?.user_metadata?.photo_url
-      || "",
-  ).trim();
-}
-
-function getAvatarFallback(authUser) {
-  const source = String(
-    authUser?.user_metadata?.full_name
-      || authUser?.user_metadata?.name
-      || authUser?.email
-      || "C",
-  ).trim();
-
-  return source.charAt(0).toUpperCase() || "C";
-}
 
 function getSectionAccent(category, fallback) {
   const map = {

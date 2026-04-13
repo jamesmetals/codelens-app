@@ -542,6 +542,55 @@ function App() {
     return { ok: true };
   };
 
+  const handleDeleteContent = async (technologyId, lessonId) => {
+    const targetTechnology = techList.find((tech) => tech.id === technologyId);
+    const targetLesson = targetTechnology?.contents.find((lesson) => lesson.id === lessonId);
+
+    if (!targetTechnology || !targetLesson) {
+      return { ok: false, error: "Conteudo nao encontrado para exclusao." };
+    }
+
+    if (supabaseConfigured && supabase && authUser?.id) {
+      try {
+        setSyncNotice("Excluindo conteudo na nuvem...");
+        const { error } = await runRemoteQuery(supabase
+          .from(supabaseStudyEntriesTable)
+          .delete()
+          .eq("user_id", authUser.id)
+          .eq("technology_name", targetTechnology.name)
+          .eq("lesson_id", lessonId));
+
+        if (error) throw error;
+
+        setLastSyncedAt(new Date().toISOString());
+        setAuthError("");
+      } catch (error) {
+        return { ok: false, error: getFriendlySyncError(error) };
+      }
+    }
+
+    const nextTechList = techList.map((tech) => {
+      if (tech.id !== technologyId) return tech;
+
+      const nextContents = tech.contents.filter((lesson) => lesson.id !== lessonId);
+      return {
+        ...tech,
+        contents: nextContents,
+        lessons: nextContents.length,
+      };
+    });
+
+    applyTechList(nextTechList);
+    setActiveLesson((current) => (current?.id === lessonId ? null : current));
+    setSyncNotice(
+      authUser
+        ? "Conteudo excluido e sincronizado com sua conta Google."
+        : "Conteudo excluido deste dispositivo.",
+    );
+
+    return { ok: true };
+  };
+
   /* eslint-disable react-hooks/exhaustive-deps -- auth bootstrap is intentionally mounted once. */
   useEffect(() => {
     if (!supabaseConfigured || !supabase) {
@@ -791,7 +840,8 @@ function App() {
            key={resolvedActiveTechnology?.id || "tech-list"}
            activeTechnology={resolvedActiveTechnology}
            authUser={authUser}
-            onBack={() => navigateTo(VIEW_HOME)}
+           onBack={() => navigateTo(VIEW_HOME)}
+           onDeleteContent={handleDeleteContent}
            onEditTechnology={openEditTechnologyModal}
            onOpenAccount={() => setShowAccountPanel(true)}
            onOpenStudyRoom={(lesson) => {
