@@ -56,10 +56,12 @@ function SupportLink({ icon, label, onClick }) {
   );
 }
 
-function ListCard({ content, onDelete, onOpen }) {
+function ListCard({ content, onDelete, onOpen, flagsList }) {
+  const contentFlags = (content.flags || []).map(id => flagsList.find(f => f.id === id)).filter(Boolean);
+
   return (
     <article
-      className="group rounded-xl border border-[#40485d]/20 bg-[#0f1930] transition-colors hover:bg-[#141f38]"
+      className="relative group rounded-xl border border-[#40485d]/20 bg-[#0f1930] transition-colors hover:bg-[#141f38]"
     >
       <button
         type="button"
@@ -72,9 +74,19 @@ function ListCard({ content, onDelete, onOpen }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="line-clamp-2 font-['Manrope'] text-[15px] font-bold leading-5 text-[#dee5ff]">
+            <h3 className="line-clamp-2 font-['Manrope'] text-[15px] font-bold leading-5 text-[#dee5ff] mr-8">
               {content.title}
             </h3>
+
+            <div className="absolute top-4 right-14 flex items-center gap-1.5">
+              {contentFlags.map(flag => (
+                <div key={flag.id} className="flex items-center rounded-md px-2.5 py-1" style={{ backgroundColor: `color-mix(in srgb, ${flag.color} 15%, transparent)` }}>
+                  <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest" style={{ color: flag.color }}>
+                    {flag.name}
+                  </span>
+                </div>
+              ))}
+            </div>
 
             <div className="flex shrink-0 items-center">
               <button
@@ -102,7 +114,7 @@ function ListCard({ content, onDelete, onOpen }) {
   );
 }
 
-function BlockCard({ content, onDelete, onOpen }) {
+function BlockCard({ content, onDelete, onOpen, flagsList }) {
   return (
     <article className="group overflow-hidden rounded-xl border border-[#40485d]/20 bg-[#0f1930] transition-colors hover:bg-[#141f38]">
       <button
@@ -110,10 +122,22 @@ function BlockCard({ content, onDelete, onOpen }) {
         onClick={() => onOpen(content)}
         className="flex h-full w-full flex-col gap-3 p-4 text-left"
       >
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="line-clamp-2 pr-2 font-['Manrope'] text-[15px] font-bold leading-5 text-[#dee5ff]">
+        <div className="relative flex items-start justify-between gap-3">
+          <h3 className="line-clamp-2 pr-12 font-['Manrope'] text-[15px] font-bold leading-5 text-[#dee5ff]">
             {content.title}
           </h3>
+          
+          {content.flags && content.flags.length > 0 && flagsList && (
+            <div className="absolute top-0 right-8 flex gap-1 items-center">
+              {content.flags.map(id => {
+                const flag = flagsList.find(f => f.id === id);
+                return flag ? (
+                  <span key={id} title={flag.name} className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: flag.color, boxShadow: `0 0 6px ${flag.color}` }} />
+                ) : null;
+              })}
+            </div>
+          )}
+
           <button
             type="button"
             onClick={(event) => {
@@ -137,7 +161,7 @@ function BlockCard({ content, onDelete, onOpen }) {
   );
 }
 
-function CompactCard({ content, onDelete, onOpen }) {
+function CompactCard({ content, onDelete, onOpen, flagsList }) {
   return (
     <article className="rounded-lg border border-[#40485d]/20 bg-[#0f1930] transition-colors hover:bg-[#141f38]">
       <button
@@ -147,9 +171,19 @@ function CompactCard({ content, onDelete, onOpen }) {
       >
         <div className="flex min-w-0 items-center gap-3">
           <GripVertical className="h-4 w-4 shrink-0 text-[#6d758c]" />
-          <span className="truncate font-['Manrope'] text-sm font-semibold text-[#dee5ff]">
+          <span className="truncate pr-8 font-['Manrope'] text-sm font-semibold text-[#dee5ff]">
             {content.title}
           </span>
+          {content.flags && content.flags.length > 0 && flagsList && (
+            <div className="absolute right-12 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              {content.flags.map(id => {
+                const flag = flagsList.find(f => f.id === id);
+                return flag ? (
+                  <span key={id} title={flag.name} className="h-2 w-2 rounded-full shadow-sm" style={{ backgroundColor: flag.color }} />
+                ) : null;
+              })}
+            </div>
+          )}
         </div>
 
         <div className="flex shrink-0 items-center">
@@ -244,6 +278,7 @@ function ConfirmDeleteModal({
 export default function TechnologyContentsList({
   activeTechnology,
   authUser,
+  flags,
   onBack,
   onDeleteContent,
   onEditTechnology,
@@ -533,6 +568,7 @@ export default function TechnologyContentsList({
                   <BlockCard
                     key={content.id}
                     content={content}
+                    flagsList={flags || []}
                     onDelete={confirmDelete}
                     onOpen={openEditor}
                   />
@@ -543,6 +579,7 @@ export default function TechnologyContentsList({
                 <ListCard
                   key={content.id}
                   content={content}
+                  flagsList={flags || []}
                   onDelete={confirmDelete}
                   onOpen={openEditor}
                 />

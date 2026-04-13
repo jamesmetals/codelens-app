@@ -11,8 +11,11 @@ import {
 import {
   DEFAULT_CATEGORIES,
   getCategoriesStorageKey,
+  getFlagsStorageKey,
   readStoredCategories,
+  readStoredFlags,
   writeStoredCategories,
+  writeStoredFlags,
   createCategoryRegistryPayload,
   parseCategoryRegistryEntry,
   clearStoredTechs,
@@ -120,8 +123,10 @@ function App() {
 
   const storageKey = getStorageKey(authUser?.id);
   const categoriesKey = getCategoriesStorageKey(authUser?.id);
+  const flagsKey = getFlagsStorageKey(authUser?.id);
 
   const [categoryList, setCategoryList] = useState(() => readStoredCategories(getCategoriesStorageKey()));
+  const [flagList, setFlagList] = useState(() => readStoredFlags(getFlagsStorageKey()));
   const [techList, setTechList] = useState(() => readStoredTechs(getStorageKey()));
   const [activeTechnology, setActiveTechnology] = useState(() => readStoredTechs(getStorageKey())[0] || technologies[0]);
   const [activeLesson, setActiveLesson] = useState(null);
@@ -187,13 +192,18 @@ function App() {
     return result;
   };
 
-  const handleStructuralSync = async (nextTechs, nextCategories) => {
+  const handleStructuralSync = async (nextTechs, nextCategories, nextFlags) => {
     if (nextTechs) {
       applyTechList(nextTechs);
       persistTechListNow(nextTechs);
     }
     if (nextCategories) {
       setCategoryList(nextCategories);
+      writeStoredCategories(getCategoriesStorageKey(authUser?.id), nextCategories);
+    }
+    if (nextFlags) {
+      setFlagList(nextFlags);
+      writeStoredFlags(getFlagsStorageKey(authUser?.id), nextFlags);
     }
 
     const syncTechs = nextTechs || techList;
@@ -524,7 +534,7 @@ function App() {
         setSyncNotice("Tecnologia atualizada neste dispositivo.");
       }
 
-      return { ok: true };
+      return { ok: true, createdTechnology: null };
     }
 
     const nextTechnology = {
@@ -564,7 +574,7 @@ function App() {
     } else {
       setSyncNotice("Tecnologia adicionada neste dispositivo.");
     }
-    return { ok: true };
+    return { ok: true, createdTechnology: nextTechnology };
   };
 
   const handleDeleteTechnology = async (technologyToDelete) => {
@@ -897,6 +907,7 @@ function App() {
           supabaseConfigured={supabaseConfigured}
           technologies={techList}
           categories={categoryList}
+          flags={flagList}
           onSyncStructure={handleStructuralSync}
         />
       ) : null}
@@ -906,6 +917,7 @@ function App() {
            key={resolvedActiveTechnology?.id || "tech-list"}
            activeTechnology={resolvedActiveTechnology}
            authUser={authUser}
+           flags={flagList}
            onBack={() => navigateTo(VIEW_HOME)}
            onDeleteContent={handleDeleteContent}
            onEditTechnology={openEditTechnologyModal}
@@ -924,9 +936,11 @@ function App() {
       {resolvedView === VIEW_STUDY && (
         <StudyRoom 
           key={activeLesson?.id || "study-room"}
-          activeTechnology={resolvedActiveTechnology}
+          activeTechnology={activeTechnology}
           activeLesson={activeLesson}
           authUser={authUser}
+          flags={flagList}
+          onSyncStructure={handleStructuralSync}
           onBack={() => navigateTo(VIEW_TECH_LIST, { technology: resolvedActiveTechnology })}
           onOpenAccount={() => setShowAccountPanel(true)}
           onOpenDevBrief={(code) => {
@@ -956,6 +970,10 @@ function App() {
         onDelete={handleDeleteTechnology}
         onSave={handleSaveTechnology}
         categoryList={categoryList}
+        onProceedToEditor={(createdTech) => {
+          closeTechnologyModal();
+          navigateTo(VIEW_STUDY, { technology: createdTech, lesson: null });
+        }}
       />
 
       {isCategoryManagerOpen && (
@@ -963,7 +981,8 @@ function App() {
           isOpen={isCategoryManagerOpen}
           onClose={() => setIsCategoryManagerOpen(false)}
           categoryList={categoryList}
-          techList={techList}
+          technologies={techList}
+          flags={flagList}
           onSyncStructure={handleStructuralSync}
         />
       )}

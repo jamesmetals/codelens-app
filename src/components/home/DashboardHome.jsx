@@ -2,12 +2,12 @@ import { createElement, useMemo, useRef, useState } from "react";
 import {
   Bell,
   BookMarked,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   FileText,
   HelpCircle,
   LayoutDashboard,
-  ChevronDown,
   LayoutGrid,
   List,
   AlignJustify,
@@ -16,6 +16,7 @@ import {
   Search,
   Settings,
   Shield,
+  Tag,
   UserCircle2,
 } from "lucide-react";
 
@@ -39,6 +40,7 @@ import { CSS } from "@dnd-kit/utilities";
 import GoogleMark from "../shared/GoogleMark";
 import { getAvatarFallback, getAvatarUrl } from "../../utils/authUi";
 import TechnologyArtwork from "./TechnologyArtwork";
+import FlagManagerModal from "./FlagManagerModal";
 
 
 function getSectionAccent(category, fallback) {
@@ -196,18 +198,7 @@ function TechnologyCard({
           {contentCount} conteudos • {technology.categoryAccent || "Biblioteca personalizada"}
         </p>
 
-        <div className="space-y-2">
-          <div className="flex justify-between font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#a3aac4]">
-            <span>Biblioteca</span>
-            <span>{contentCount}</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#192540]">
-            <div
-              className={`h-full rounded-full ${technology.cardBarClass || "bg-[#69daff]"}`}
-              style={{ width: `${trackWidth}%` }}
-            />
-          </div>
-        </div>
+
       </button>
     </article>
   );
@@ -396,10 +387,12 @@ export default function DashboardHome({
   supabaseConfigured,
   technologies,
   categories,
+  flags,
   onSyncStructure,
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [displayMode, setDisplayMode] = useState("cards");
+  const [isFlagManagerOpen, setIsFlagManagerOpen] = useState(false);
 
   const groupedTechnologies = useMemo(
     () => getTechnologyGroups(technologies, searchTerm, categories),
@@ -465,6 +458,11 @@ export default function DashboardHome({
             icon={LayoutDashboard}
             label="Categorias"
             onClick={onManageCategories}
+          />
+          <SidebarItem
+            icon={Tag}
+            label="Filtrar por Flags"
+            onClick={() => setIsFlagManagerOpen(true)}
           />
           <SidebarItem
             icon={UserCircle2}
@@ -635,6 +633,14 @@ export default function DashboardHome({
           </section>
         )}
       </main>
+
+      <FlagManagerModal
+        isOpen={isFlagManagerOpen}
+        onClose={() => setIsFlagManagerOpen(false)}
+        flags={flags || []}
+        technologies={technologies}
+        onSyncStructure={onSyncStructure}
+      />
     </div>
   );
 }

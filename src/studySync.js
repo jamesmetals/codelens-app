@@ -7,6 +7,8 @@ const TECHNOLOGY_META_LESSON_ID = 0;
 const TECHNOLOGY_META_TITLE = "__technology_meta__";
 const CATEGORY_META_LESSON_ID = -1;
 const CATEGORY_META_TITLE = "__category_registry__";
+const FLAG_META_LESSON_ID = -2;
+const FLAG_META_TITLE = "__flag_registry__";
 
 export const DEFAULT_CATEGORIES = [
   { id: "cat-minhas", name: "Minhas tecnologias", accent: "Bibliotecas personalizadas" },
@@ -484,6 +486,32 @@ export function writeStoredCategories(storageKey, categories) {
   }
 }
 
+export function getFlagsStorageKey(userId) {
+  return userId ? `codenlens_flags_${userId}` : "codenlens_flags_guest";
+}
+
+export function readStoredFlags(storageKey) {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeStoredFlags(storageKey, flags) {
+  if (typeof window === "undefined") return { ok: false };
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(flags));
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
 export function createCategoryRegistryPayload(userId, categories) {
   return {
     user_id: userId,
@@ -492,6 +520,20 @@ export function createCategoryRegistryPayload(userId, categories) {
     title: CATEGORY_META_TITLE,
     summary: "System categories array",
     full_code: JSON.stringify(categories),
+    study_notes: [],
+    highlights: [],
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export function createFlagRegistryPayload(userId, flags) {
+  return {
+    user_id: userId,
+    technology_name: "__flags__",
+    lesson_id: FLAG_META_LESSON_ID,
+    title: FLAG_META_TITLE,
+    summary: "System flags array",
+    full_code: JSON.stringify(flags),
     study_notes: [],
     highlights: [],
     updated_at: new Date().toISOString(),
@@ -512,6 +554,22 @@ export function parseCategoryRegistryEntry(entry) {
 export function isCategoryMetaEntry(entry) {
   return Number(entry?.lesson_id) === CATEGORY_META_LESSON_ID
     && String(entry?.title || "").trim() === CATEGORY_META_TITLE;
+}
+
+export function parseFlagRegistryEntry(entry) {
+  if (Number(entry?.lesson_id) !== FLAG_META_LESSON_ID || entry?.title !== FLAG_META_TITLE) {
+    return null;
+  }
+  try {
+    return JSON.parse(entry.full_code);
+  } catch {
+    return null;
+  }
+}
+
+export function isFlagMetaEntry(entry) {
+  return Number(entry?.lesson_id) === FLAG_META_LESSON_ID
+    && String(entry?.title || "").trim() === FLAG_META_TITLE;
 }
 
 

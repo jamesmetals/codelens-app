@@ -270,6 +270,7 @@ export default function TechnologyModal({
   onDelete,
   onSave,
   categoryList,
+  onProceedToEditor,
 }) {
   const fileInputRef = useRef(null);
 
@@ -283,6 +284,7 @@ export default function TechnologyModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCropOpen, setIsCropOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [successTech, setSuccessTech] = useState(null);
 
   const title = mode === "edit" ? "Editar tecnologia" : "Adicionar tecnologia";
   const actionLabel = mode === "edit" ? "Salvar alteracoes" : "Criar tecnologia";
@@ -301,6 +303,7 @@ export default function TechnologyModal({
     setIsLoadingImage(false);
     setIsCropOpen(false);
     setIsDeleteConfirmOpen(false);
+    setSuccessTech(null);
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -408,7 +411,11 @@ export default function TechnologyModal({
         return;
       }
 
-      onClose();
+      if (mode === "create") {
+        setSuccessTech(result.createdTechnology || { id: "new", name: name.trim() });
+      } else {
+        onClose();
+      }
     } catch (saveError) {
       setError(saveError.message || "Nao foi possivel salvar.");
       setIsSaving(false);
@@ -468,8 +475,38 @@ export default function TechnologyModal({
             </button>
           </header>
 
-          <form onSubmit={handleSubmit}>
-            <main className="space-y-5 p-6">
+          {successTech ? (
+            <div className="flex flex-col items-center justify-center px-8 py-12 text-center">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+                <Check className="h-10 w-10" strokeWidth={3} />
+              </div>
+              <h2 className="mb-3 font-['Space_Grotesk'] text-2xl font-bold tracking-tight text-white">
+                Tecnologia adicionada!
+              </h2>
+              <p className="mb-8 text-sm text-slate-400">
+                A biblioteca <strong>{successTech.name}</strong> foi criada com sucesso e os blocos de estudo ja podem ser anexados.
+              </p>
+              
+              <div className="flex w-full gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 rounded-xl bg-[#141f38] px-4 py-3.5 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  Concluir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onProceedToEditor(successTech)}
+                  className="flex-1 rounded-xl bg-gradient-to-br from-sky-400 to-cyan-500 px-4 py-3.5 text-sm font-bold text-[#083445] shadow-[0_12px_32px_rgba(73,211,255,0.18)] transition-transform hover:scale-[1.02]"
+                >
+                  + Adicionar conteudo
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <main className="space-y-5 p-6">
               <label className="block">
                 <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
                   Nome da tecnologia
@@ -639,6 +676,7 @@ export default function TechnologyModal({
               </div>
             </footer>
           </form>
+          )}
         </div>
       </div>
 

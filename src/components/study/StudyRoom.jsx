@@ -17,6 +17,8 @@ import GoogleMark from "../shared/GoogleMark";
 import { getAvatarFallback, getAvatarUrl } from "../../utils/authUi";
 import DynamicEditor from "./DynamicEditor";
 
+import FlagManagerModal from "../home/FlagManagerModal";
+
 async function fetchSummary(title, code) {
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
   const isLoopbackHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
@@ -124,23 +126,27 @@ export default function StudyRoom({
   activeTechnology,
   activeLesson,
   authUser,
+  flags,
   onBack,
   onOpenAccount,
   onOpenDevBrief,
   onSignInWithGoogle,
   onUpdateContent,
+  onSyncStructure,
   supabaseConfigured,
 }) {
   const [localTitle, setLocalTitle] = useState(activeLesson?.title || "");
   const [localSummary, setLocalSummary] = useState(activeLesson?.summary || "");
   const [currentCode, setCurrentCode] = useState(activeLesson?.fullCode || "");
   const [notes, setNotes] = useState(activeLesson?.studyNotes || []);
+  const [lessonFlags, setLessonFlags] = useState(activeLesson?.flags || []);
   const [activeSpanId, setActiveSpanId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState("");
   const [notesCollapsed, setNotesCollapsed] = useState(false);
+  const [showFlagManager, setShowFlagManager] = useState(false);
 
   const isLogged = Boolean(authUser);
   const avatarUrl = getAvatarUrl(authUser);
@@ -150,6 +156,7 @@ export default function StudyRoom({
     setLocalSummary(activeLesson?.summary || "");
     setCurrentCode(activeLesson?.fullCode || "");
     setNotes(activeLesson?.studyNotes || []);
+    setLessonFlags(activeLesson?.flags || []);
     setActiveSpanId(null);
     setSaveFeedback("");
     setAiError("");
@@ -166,6 +173,7 @@ export default function StudyRoom({
         summary: localSummary,
         fullCode: currentCode,
         studyNotes: notes,
+        flags: lessonFlags,
         highlights: notes.map((note) => note.codeSnippet).filter(Boolean).slice(0, 3),
       });
 
@@ -224,6 +232,14 @@ export default function StudyRoom({
   const handleNoteClick = (spanId) => {
     setActiveSpanId(null);
     requestAnimationFrame(() => setActiveSpanId(spanId));
+  };
+
+  const toggleFlag = (flagId) => {
+    setLessonFlags(current => 
+      current.includes(flagId) 
+        ? current.filter(id => id !== flagId) 
+        : [...current, flagId]
+    );
   };
 
   return (
@@ -392,6 +408,10 @@ export default function StudyRoom({
                   onAddSelection={handleAddAnnotation}
                   onChange={setCurrentCode}
                   highlightSpanId={activeSpanId}
+                  flagsList={flags || []}
+                  lessonFlags={lessonFlags}
+                  onToggleFlag={toggleFlag}
+                  onManageFlags={() => setShowFlagManager(true)}
                 />
               </div>
             </section>
@@ -459,6 +479,14 @@ export default function StudyRoom({
           </aside>
         </div>
       </main>
+
+      <FlagManagerModal 
+        isOpen={showFlagManager}
+        onClose={() => setShowFlagManager(false)}
+        flags={flags || []}
+        technologies={[]}
+        onSyncStructure={onSyncStructure}
+      />
     </div>
   );
 }
