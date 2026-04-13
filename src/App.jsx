@@ -288,6 +288,12 @@ function App() {
       const cachedUserTechs = guestDraftTechs.length
         ? mergeTechnologyLists(readStoredTechs(getStorageKey(user.id)), guestDraftTechs)
         : readStoredTechs(getStorageKey(user.id));
+      const cachedCategories = readStoredCategories(getCategoriesStorageKey(user.id));
+      
+      // Update the UI immediately with whatever is in the local cache before waiting for the network
+      applyTechList(cachedUserTechs);
+      setCategoryList(cachedCategories);
+
       let remoteEntries = [];
       let { data, error } = await runRemoteQuery(supabase
         .from(supabaseStudyEntriesTable)
