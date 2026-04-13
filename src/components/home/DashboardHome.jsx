@@ -38,6 +38,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import GoogleMark from "../shared/GoogleMark";
+import CodenLensLogo from "../shared/CodenLensLogo";
 import { getAvatarFallback, getAvatarUrl } from "../../utils/authUi";
 import TechnologyArtwork from "./TechnologyArtwork";
 import FlagManagerModal from "./FlagManagerModal";
@@ -435,9 +436,12 @@ export default function DashboardHome({
 
       <aside className="fixed left-0 top-0 z-[60] hidden h-full w-64 flex-col gap-y-6 bg-[#091328] py-8 lg:flex">
         <div className="mb-4 px-8">
-          <h1 className="font-['Manrope'] text-2xl font-black italic tracking-tighter text-[#69daff]">
-            CodenLens
-          </h1>
+          <div className="flex items-center gap-3 mb-2">
+            <CodenLensLogo size={38} />
+            <h1 className="font-['Manrope'] text-xl font-black tracking-tight">
+              <span className="text-[#dee5ff]">Coden</span><span className="text-[#00e5ff]">Lens</span>
+            </h1>
+          </div>
           <p className="mt-1 font-['Manrope'] text-[10px] uppercase tracking-widest text-[#a3aac4]">
             Bibliotecas de estudo vivas
           </p>

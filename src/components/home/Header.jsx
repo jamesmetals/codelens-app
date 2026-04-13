@@ -1,5 +1,6 @@
-import { Bell, BookOpen, Cloud, Menu, Search, User } from "lucide-react";
+import { Bell, Cloud, Menu, Search, User } from "lucide-react";
 import { getDisplayName } from "../../studySync";
+import CodenLensLogo from "../shared/CodenLensLogo";
 
 export default function Header({
   authUser,
@@ -16,12 +17,10 @@ export default function Header({
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-8">
           <div className="flex cursor-pointer items-center gap-3">
-            <div className="brand-lockup">
-              <BookOpen className="h-5 w-5" />
-            </div>
+            <CodenLensLogo size={36} />
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-200/90">
-                CodenLens
+              <p className="font-['Manrope'] text-base font-black tracking-tight">
+                <span className="text-white">Coden</span><span className="text-[#00e5ff]">Lens</span>
               </p>
             </div>
           </div>
