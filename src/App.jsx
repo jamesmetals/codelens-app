@@ -18,6 +18,7 @@ import {
   getFriendlySyncError,
   getStorageKey,
   hasGuestDraftData,
+  mergeTechnologyLists,
   mergeRemoteTechnologies,
   mergeStudyEntries,
   readStoredTechs,
@@ -262,10 +263,15 @@ function App() {
     }
 
     const { migrateGuest = false } = options;
+    const guestDraftTechs = migrateGuest && hasGuestDraftData()
+      ? readStoredTechs(getStorageKey())
+      : [];
     setSyncNotice("Carregando seus blocos salvos...");
 
     try {
-      const cachedUserTechs = readStoredTechs(getStorageKey(user.id));
+      const cachedUserTechs = guestDraftTechs.length
+        ? mergeTechnologyLists(readStoredTechs(getStorageKey(user.id)), guestDraftTechs)
+        : readStoredTechs(getStorageKey(user.id));
       let remoteEntries = [];
       let { data, error } = await runRemoteQuery(supabase
         .from(supabaseStudyEntriesTable)
@@ -276,7 +282,7 @@ function App() {
       if (error) throw error;
       remoteEntries = data || [];
 
-      if (migrateGuest && remoteEntries.length === 0 && hasGuestDraftData()) {
+      if (guestDraftTechs.length) {
         setSyncNotice("Migrando seus dados locais para a conta Google...");
         const migrated = await migrateGuestStudyToCloud(user);
 
@@ -303,7 +309,13 @@ function App() {
       setLastSyncedAt(new Date().toISOString());
       setAuthError("");
     } catch (error) {
-      loadLocalTechList(user.id);
+      if (guestDraftTechs.length) {
+        const fallbackTechs = mergeTechnologyLists(readStoredTechs(getStorageKey(user.id)), guestDraftTechs);
+        applyTechList(fallbackTechs);
+        writeStoredTechs(getStorageKey(user.id), fallbackTechs);
+      } else {
+        loadLocalTechList(user.id);
+      }
       setAuthError(getFriendlySyncError(error));
       setSyncNotice("Falha na nuvem. Usando o cache local deste dispositivo.");
     }
@@ -619,7 +631,6 @@ function App() {
       setAuthUser(nextUser);
 
       if (nextUser) {
-        loadLocalTechList(nextUser.id);
         await syncRemoteStudy(nextUser, { migrateGuest: true });
       } else {
         loadLocalTechList();
@@ -652,7 +663,6 @@ function App() {
       }
 
       if (nextUser) {
-        loadLocalTechList(nextUser.id);
         await syncRemoteStudy(nextUser, { migrateGuest: true });
       } else {
         loadLocalTechList();

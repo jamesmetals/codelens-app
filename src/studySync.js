@@ -318,6 +318,55 @@ export function mergeRemoteTechnologies(records, cachedTechs = []) {
   return normalizeTechnologies(result);
 }
 
+export function mergeTechnologyLists(baseTechs = [], incomingTechs = []) {
+  const result = normalizeTechnologies(baseTechs);
+  const byId = new Map(result.map((technology, index) => [technology.id, index]));
+  const byName = new Map(
+    result.map((technology, index) => [String(technology.name || "").trim().toLowerCase(), index]),
+  );
+
+  for (const incomingTechnology of normalizeTechnologies(incomingTechs)) {
+    const incomingName = String(incomingTechnology.name || "").trim().toLowerCase();
+    const existingIndex = byId.get(incomingTechnology.id) ?? byName.get(incomingName);
+
+    if (existingIndex == null) {
+      byId.set(incomingTechnology.id, result.length);
+      byName.set(incomingName, result.length);
+      result.push(incomingTechnology);
+      continue;
+    }
+
+    const currentTechnology = result[existingIndex];
+    const mergedLessons = new Map(
+      normalizeArray(currentTechnology.contents).map((lesson) => [Number(lesson.id), lesson]),
+    );
+
+    for (const lesson of normalizeArray(incomingTechnology.contents)) {
+      mergedLessons.set(Number(lesson.id), lesson);
+    }
+
+    const mergedTechnology = normalizeTechnology({
+      ...currentTechnology,
+      ...incomingTechnology,
+      id: currentTechnology.id || incomingTechnology.id,
+      name: incomingTechnology.name || currentTechnology.name,
+      category: incomingTechnology.category || currentTechnology.category,
+      categoryAccent: incomingTechnology.categoryAccent || currentTechnology.categoryAccent,
+      image: incomingTechnology.image || currentTechnology.image,
+      cardLabel: incomingTechnology.cardLabel || currentTechnology.cardLabel,
+      cardTone: incomingTechnology.cardTone || currentTechnology.cardTone,
+      cardBarClass: incomingTechnology.cardBarClass || currentTechnology.cardBarClass,
+      contents: Array.from(mergedLessons.values()),
+    }, existingIndex);
+
+    result[existingIndex] = mergedTechnology;
+    byId.set(mergedTechnology.id, existingIndex);
+    byName.set(String(mergedTechnology.name || "").trim().toLowerCase(), existingIndex);
+  }
+
+  return normalizeTechnologies(result);
+}
+
 export function extractTechnologyMetadataEntries(entries) {
   return normalizeArray(entries)
     .map((entry) => parseTechnologyMetaEntry(entry))
