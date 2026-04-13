@@ -187,6 +187,27 @@ function App() {
     return result;
   };
 
+  const handleStructuralSync = async (nextTechs, nextCategories) => {
+    if (nextTechs) {
+      applyTechList(nextTechs);
+      persistTechListNow(nextTechs);
+    }
+    if (nextCategories) {
+      setCategoryList(nextCategories);
+    }
+
+    const syncTechs = nextTechs || techList;
+    const syncCats = nextCategories || categoryList;
+
+    if (supabaseConfigured && supabase && authUser?.id) {
+      try {
+        await syncRemoteTechnologies(authUser.id, syncTechs, syncCats);
+      } catch (error) {
+        console.warn("Falha na sincronização estrutural (categorias/tecnologias):", error);
+      }
+    }
+  };
+
   const openCreateTechnologyModal = () => {
     setTechnologyModal({
       open: true,
@@ -875,8 +896,8 @@ function App() {
           setActiveTechnology={setActiveTechnology}
           supabaseConfigured={supabaseConfigured}
           technologies={techList}
-          categoryList={categoryList}
-          setCategoryList={setCategoryList}
+          categories={categoryList}
+          onSyncStructure={handleStructuralSync}
         />
       ) : null}
 
@@ -942,12 +963,8 @@ function App() {
           isOpen={isCategoryManagerOpen}
           onClose={() => setIsCategoryManagerOpen(false)}
           categoryList={categoryList}
-          setCategoryList={setCategoryList}
           techList={techList}
-          onUpdateTechList={(next) => {
-            applyTechList(next);
-            persistTechListNow(next);
-          }}
+          onSyncStructure={handleStructuralSync}
         />
       )}
 

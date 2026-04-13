@@ -52,7 +52,7 @@ function CategoryDroppable({ category, technologies, onDelete }) {
     data: { type: "Category", category },
   });
 
-  const isSystemCategory = ["Minhas tecnologias", "Fundamentos", "Frameworks", "Infraestrutura"].includes(
+  const isSystemCategory = ["Minhas tecnologias"].includes(
     category.name,
   );
 
@@ -104,9 +104,8 @@ export default function CategoryManagerModal({
   isOpen,
   onClose,
   categoryList,
-  setCategoryList,
   techList,
-  onUpdateTechList,
+  onSyncStructure,
 }) {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [activeDragTech, setActiveDragTech] = useState(null);
@@ -145,25 +144,26 @@ export default function CategoryManagerModal({
       accent: "Customizado",
     };
 
-    setCategoryList([...categoriesToRender, newCategory]);
+    onSyncStructure(null, [...categoriesToRender, newCategory]);
     setNewCategoryName("");
   };
 
   const handleDeleteCategory = (catToDelete) => {
-    // If it has technologies, re-assign them to default
+    let nextTechList = null;
+
     const count = techList.filter((t) => t.category === catToDelete.name).length;
     if (count > 0) {
       if (!confirm(`Existem ${count} tecnologias ligadas a esta categoria. Elas serão movidas para "Minhas tecnologias". Reprogresso?`)) {
         return;
       }
       
-      const newTechList = techList.map(t => 
+      nextTechList = techList.map(t => 
         t.category === catToDelete.name ? { ...t, category: "Minhas tecnologias" } : t
       );
-      onUpdateTechList(newTechList);
     }
     
-    setCategoryList(categoriesToRender.filter((c) => c.id !== catToDelete.id));
+    const nextCategories = categoriesToRender.filter((c) => c.id !== catToDelete.id);
+    onSyncStructure(nextTechList, nextCategories);
   };
 
   const handleDragStart = (event) => {
@@ -189,7 +189,7 @@ export default function CategoryManagerModal({
         const newTechList = techList.map((t) =>
           t.id === draggedTech.id ? { ...t, category: targetCategory.name } : t,
         );
-        onUpdateTechList(newTechList);
+        onSyncStructure(newTechList, null);
       }
     }
   };

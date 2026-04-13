@@ -306,14 +306,14 @@ export default function DashboardHome({
   setActiveTechnology,
   supabaseConfigured,
   technologies,
-  categoryList,
-  setCategoryList,
+  categories,
+  onSyncStructure,
 }) {
   const [searchTerm, setSearchTerm] = useState("");
 
   const groupedTechnologies = useMemo(
-    () => getTechnologyGroups(technologies, searchTerm, categoryList),
-    [technologies, searchTerm, categoryList],
+    () => getTechnologyGroups(technologies, searchTerm, categories),
+    [technologies, searchTerm, categories],
   );
 
   const sensors = useSensors(
@@ -324,11 +324,11 @@ export default function DashboardHome({
   const handleDragEnd = (event) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = categoryList.findIndex((item) => `rail-${item.name}` === active.id);
-      const newIndex = categoryList.findIndex((item) => `rail-${item.name}` === over.id);
+      const oldIndex = categories.findIndex((item) => `rail-${item.name}` === active.id);
+      const newIndex = categories.findIndex((item) => `rail-${item.name}` === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        setCategoryList(arrayMove(categoryList, oldIndex, newIndex));
+        onSyncStructure(null, arrayMove(categories, oldIndex, newIndex));
       }
     }
   };
