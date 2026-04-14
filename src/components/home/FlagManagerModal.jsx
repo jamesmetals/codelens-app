@@ -12,6 +12,7 @@ export default function FlagManagerModal({
   const [selectedFlagFilter, setSelectedFlagFilter] = useState(null);
   
   // CRUD states
+  const [editingId, setEditingId] = useState(null);
   const [flagName, setFlagName] = useState("");
   const [flagColor, setFlagColor] = useState("");
 
@@ -36,6 +37,7 @@ export default function FlagManagerModal({
     onSyncStructure(null, null, [...flags, newFlag]);
     setFlagName("");
     setFlagColor("");
+    setEditingId(null);
   };
 
   const handleDeleteFlag = (id) => {
@@ -89,7 +91,7 @@ export default function FlagManagerModal({
           <aside className="w-1/3 border-r border-[#40485d]/20 bg-[#091328]/50 flex flex-col">
             <div className="p-4 border-b border-[#40485d]/20">
               <button 
-                onClick={() => { setActiveTab("crud"); setFlagName(""); }}
+                onClick={() => { setActiveTab("crud"); setEditingId(null); setFlagName(""); }}
                 className="w-full rounded-md border border-[#69daff]/30 bg-[#69daff]/10 py-2.5 font-['Manrope'] text-[11px] font-bold tracking-widest text-[#69daff] uppercase transition-colors hover:bg-[#69daff]/20"
               >
                 + Nova Flag
