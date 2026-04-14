@@ -147,6 +147,7 @@ export default function StudyRoom({
   const [aiError, setAiError] = useState("");
   const [notesCollapsed, setNotesCollapsed] = useState(false);
   const [showFlagManager, setShowFlagManager] = useState(false);
+  const [infoCollapsed, setInfoCollapsed] = useState(false); // For title/summary section
 
   const isLogged = Boolean(authUser);
   const avatarUrl = getAvatarUrl(authUser);
@@ -334,60 +335,77 @@ export default function StudyRoom({
       <main className="relative z-10 min-h-screen bg-[#060e20] px-4 pb-10 pt-20 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
           <div className="min-w-0 flex-1 space-y-6">
-            <section className="rounded-xl border border-[#40485d]/10 bg-[#0f1930] p-6">
-              <div className="space-y-5">
-                <div>
-                  <div className="mb-2 flex items-center justify-between gap-4">
-                    <label className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
-                      Titulo do conteudo
-                    </label>
-                    <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#69daff]">
-                      Essencial
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    value={localTitle}
-                    onChange={(event) => setLocalTitle(event.target.value)}
-                    className="w-full rounded-lg border border-[#40485d]/20 bg-black/20 px-4 py-3 text-sm text-[#dee5ff] placeholder:text-[#6d758c] focus:border-[#69daff]/40 focus:outline-none"
-                  />
+            <section className="rounded-xl border border-[#40485d]/10 bg-[#0f1930]">
+              <div className="flex items-center justify-between border-b border-[#40485d]/10 bg-[#091328] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <BookMarked className="h-4 w-4 text-[#a3aac4]" />
+                  <span className="font-['Manrope'] text-[11px] text-[#a3aac4]">Informações do conteúdo</span>
                 </div>
-
-                <div>
-                  <div className="mb-2 flex items-center justify-between gap-4">
-                    <label className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
-                      Resumo
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleGenerateSummary}
-                      disabled={isGenerating}
-                      className="inline-flex items-center gap-2 font-['Manrope'] text-[11px] font-bold text-[#69daff] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isGenerating ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3.5 w-3.5" />
-                      )}
-                      {isGenerating ? "Gerando..." : "Gerar resumo com IA"}
-                    </button>
-                  </div>
-
-                  <textarea
-                    value={localSummary}
-                    onChange={(event) => setLocalSummary(event.target.value)}
-                    rows={3}
-                    className="w-full rounded-lg border border-[#40485d]/20 bg-black/20 px-4 py-3 text-sm leading-7 text-[#dee5ff] placeholder:text-[#6d758c] focus:border-[#69daff]/40 focus:outline-none"
-                  />
-
-                  {aiError ? (
-                    <p className="mt-2 inline-flex items-center gap-2 text-xs text-rose-300">
-                      <X className="h-3.5 w-3.5" />
-                      {aiError}
-                    </p>
-                  ) : null}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setInfoCollapsed((current) => !current)}
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg border border-[#40485d]/20 bg-[#141f38] text-[#a3aac4] transition-colors hover:text-white`}
+                  aria-label={infoCollapsed ? "Expandir informações" : "Recolher informações"}
+                >
+                  {infoCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                </button>
               </div>
+
+              {!infoCollapsed && (
+                <div className="p-6 space-y-5">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-4">
+                      <label className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
+                        Titulo do conteudo
+                      </label>
+                      <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#69daff]">
+                        Essencial
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={localTitle}
+                      onChange={(event) => setLocalTitle(event.target.value)}
+                      className="w-full rounded-lg border border-[#40485d]/20 bg-black/20 px-4 py-3 text-sm text-[#dee5ff] placeholder:text-[#6d758c] focus:border-[#69daff]/40 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-4">
+                      <label className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
+                        Resumo
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleGenerateSummary}
+                        disabled={isGenerating}
+                        className="inline-flex items-center gap-2 font-['Manrope'] text-[11px] font-bold text-[#69daff] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isGenerating ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                        {isGenerating ? "Gerando..." : "Gerar resumo com IA"}
+                      </button>
+                    </div>
+
+                    <textarea
+                      value={localSummary}
+                      onChange={(event) => setLocalSummary(event.target.value)}
+                      rows={3}
+                      className="w-full rounded-lg border border-[#40485d]/20 bg-black/20 px-4 py-3 text-sm leading-7 text-[#dee5ff] placeholder:text-[#6d758c] focus:border-[#69daff]/40 focus:outline-none"
+                    />
+
+                    {aiError ? (
+                      <p className="mt-2 inline-flex items-center gap-2 text-xs text-rose-300">
+                        <X className="h-3.5 w-3.5" />
+                        {aiError}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              )}
             </section>
 
             <section className="overflow-hidden rounded-xl border border-[#40485d]/10 bg-[#0f1930]">

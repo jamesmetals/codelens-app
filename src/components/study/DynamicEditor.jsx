@@ -245,7 +245,21 @@ export default function DynamicEditor({
 
   useEffect(() => {
     if (!editorRef.current) return;
+
+    // Save current selection before updating content
+    const selection = window.getSelection();
+    let savedRange = null;
+    if (selection.rangeCount > 0) {
+      savedRange = selection.getRangeAt(0).cloneRange();
+    }
+
     editorRef.current.innerHTML = toEditorHtml(initialContent);
+
+    // Restore selection after updating content
+    if (savedRange) {
+      selection.removeAllRanges();
+      selection.addRange(savedRange);
+    }
   }, [initialContent]);
 
   useEffect(() => {
@@ -602,6 +616,17 @@ export default function DynamicEditor({
           onInput={(event) => {
             if (onChange) {
               onChange(event.currentTarget.innerText);
+            }
+          }}
+          onKeyDown={(event) => {
+            // Ctrl+T or Cmd+T to select all text
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 't') {
+              event.preventDefault();
+              const range = document.createRange();
+              range.selectNodeContents(editorRef.current);
+              const selection = window.getSelection();
+              selection.removeAllRanges();
+              selection.addRange(range);
             }
           }}
           className="min-h-full whitespace-pre-wrap p-6 font-mono leading-7 text-[#dee5ff] outline-none"
