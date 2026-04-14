@@ -981,8 +981,7 @@ function App() {
           isOpen={isCategoryManagerOpen}
           onClose={() => setIsCategoryManagerOpen(false)}
           categoryList={categoryList}
-          technologies={techList}
-          flags={flagList}
+          techList={techList}
           onSyncStructure={handleStructuralSync}
         />
       )}

@@ -9,7 +9,7 @@ import {
 } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { Folder, LayoutGrid, Plus, Save, Trash2, X } from "lucide-react";
+import { Folder, LayoutGrid, Plus, Trash2, X } from "lucide-react";
 
 // --- Draggable Tech Item --- //
 function TechDraggable({ tech }) {
@@ -105,10 +105,16 @@ export default function CategoryManagerModal({
   onClose,
   categoryList,
   techList,
+  technologies,
   onSyncStructure,
 }) {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [activeDragTech, setActiveDragTech] = useState(null);
+  const safeTechList = Array.isArray(techList)
+    ? techList
+    : Array.isArray(technologies)
+      ? technologies
+      : [];
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -151,13 +157,13 @@ export default function CategoryManagerModal({
   const handleDeleteCategory = (catToDelete) => {
     let nextTechList = null;
 
-    const count = techList.filter((t) => t.category === catToDelete.name).length;
+    const count = safeTechList.filter((t) => t.category === catToDelete.name).length;
     if (count > 0) {
       if (!confirm(`Existem ${count} tecnologias ligadas a esta categoria. Elas serão movidas para "Minhas tecnologias". Reprogresso?`)) {
         return;
       }
       
-      nextTechList = techList.map(t => 
+      nextTechList = safeTechList.map(t => 
         t.category === catToDelete.name ? { ...t, category: "Minhas tecnologias" } : t
       );
     }
@@ -186,7 +192,7 @@ export default function CategoryManagerModal({
       const targetCategory = over.data.current.category;
 
       if (draggedTech.category !== targetCategory.name) {
-        const newTechList = techList.map((t) =>
+        const newTechList = safeTechList.map((t) =>
           t.id === draggedTech.id ? { ...t, category: targetCategory.name } : t,
         );
         onSyncStructure(newTechList, null);
@@ -250,7 +256,7 @@ export default function CategoryManagerModal({
           >
             <div className="flex min-h-0 flex-1 items-start gap-4 overflow-x-auto pb-4">
               {categoriesToRender.map((category) => {
-                const categoryTechs = techList.filter(
+                const categoryTechs = safeTechList.filter(
                   (t) => (t.category || "Minhas tecnologias") === category.name,
                 );
 
