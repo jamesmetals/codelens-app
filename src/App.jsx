@@ -123,7 +123,6 @@ function App() {
 
   const storageKey = getStorageKey(authUser?.id);
   const categoriesKey = getCategoriesStorageKey(authUser?.id);
-  const flagsKey = getFlagsStorageKey(authUser?.id);
 
   const [categoryList, setCategoryList] = useState(() => readStoredCategories(getCategoriesStorageKey()));
   const [flagList, setFlagList] = useState(() => readStoredFlags(getFlagsStorageKey()));

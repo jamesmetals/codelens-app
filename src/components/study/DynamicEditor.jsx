@@ -5,12 +5,16 @@ import {
   Code,
   Italic,
   List,
+  ListOrdered,
   PaintBucket,
   Plus,
+  Quote,
+  Redo2,
   Strikethrough,
   Tag,
   Trash2,
   Underline,
+  Undo2,
   X,
 } from "lucide-react";
 
@@ -223,6 +227,28 @@ function toEditorHtml(text) {
     .join("");
 }
 
+function normalizeEditorText(value) {
+  return String(value ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .replace(/\n$/, "");
+}
+
+function getEditorText(editor) {
+  return normalizeEditorText(editor?.innerText ?? "");
+}
+
+function createEditorStats(text) {
+  const normalized = normalizeEditorText(text);
+  const trimmed = normalized.trim();
+
+  return {
+    characters: normalized.length,
+    words: trimmed ? trimmed.split(/\s+/).length : 0,
+    lines: normalized ? normalized.split("\n").length : 1,
+  };
+}
+
 export default function DynamicEditor({
   highlightSpanId,
   initialContent,
@@ -235,6 +261,8 @@ export default function DynamicEditor({
 }) {
   const editorRef = useRef(null);
   const savedRangeRef = useRef(null);
+  const hasHydratedRef = useRef(false);
+  const lastSyncedContentRef = useRef("");
   const [tooltip, setTooltip] = useState(null);
   const [fontSize, setFontSize] = useState(14);
   const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[0]);
@@ -242,11 +270,47 @@ export default function DynamicEditor({
   const [showPaletteEditor, setShowPaletteEditor] = useState(false);
   const [showFlagsMenu, setShowFlagsMenu] = useState(false);
   const [textPalette, setTextPalette] = useState(loadPalette);
+  const editorStats = createEditorStats(initialContent);
+
+  const syncEditorContent = useCallback((nextContent) => {
+    if (!editorRef.current) return;
+
+    editorRef.current.innerHTML = toEditorHtml(nextContent);
+    lastSyncedContentRef.current = nextContent;
+  }, []);
+
+  const emitEditorChange = useCallback(() => {
+    const nextText = getEditorText(editorRef.current);
+    lastSyncedContentRef.current = nextText;
+    onChange?.(nextText);
+  }, [onChange]);
 
   useEffect(() => {
     if (!editorRef.current) return;
-    editorRef.current.innerHTML = toEditorHtml(initialContent);
-  }, [initialContent]);
+
+    const nextContent = normalizeEditorText(initialContent);
+
+    if (!hasHydratedRef.current) {
+      syncEditorContent(nextContent);
+      hasHydratedRef.current = true;
+      return;
+    }
+
+    if (nextContent === lastSyncedContentRef.current) {
+      return;
+    }
+
+    if (getEditorText(editorRef.current) === nextContent) {
+      lastSyncedContentRef.current = nextContent;
+      return;
+    }
+
+    if (document.activeElement === editorRef.current) {
+      return;
+    }
+
+    syncEditorContent(nextContent);
+  }, [initialContent, syncEditorContent]);
 
   useEffect(() => {
     if (!highlightSpanId) return;
@@ -289,7 +353,7 @@ export default function DynamicEditor({
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
-      if (!event.target.closest("[data-editor-menu]")) {
+      if (!(event.target instanceof Element) || !event.target.closest("[data-editor-menu]")) {
         setShowFontMenu(false);
         setShowPaletteEditor(false);
         setShowFlagsMenu(false);
@@ -300,10 +364,11 @@ export default function DynamicEditor({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
-  const execCmd = (command, value = null) => {
+  const execCmd = useCallback((command, value = null) => {
     document.execCommand(command, false, value);
     editorRef.current?.focus();
-  };
+    emitEditorChange();
+  }, [emitEditorChange]);
 
   const changeFontSize = (delta) => {
     const next = Math.min(MAX_SIZE, Math.max(MIN_SIZE, fontSize + delta));
@@ -343,6 +408,22 @@ export default function DynamicEditor({
     });
   }, []);
 
+  const selectAllContent = useCallback(() => {
+    if (!editorRef.current) return;
+
+    const range = document.createRange();
+    range.selectNodeContents(editorRef.current);
+
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, []);
+
+  const insertPlainText = useCallback((text) => {
+    document.execCommand("insertText", false, text);
+    emitEditorChange();
+  }, [emitEditorChange]);
+
   const handleAddAnnotation = useCallback((event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -368,18 +449,102 @@ export default function DynamicEditor({
       onAddSelection(text, ledColor, spanId);
     }
 
-    if (onChange) {
-      onChange(editorRef.current.innerText);
-    }
-
     savedRangeRef.current = null;
     selection.removeAllRanges();
     setTooltip(null);
-  }, [onAddSelection, onChange]);
+    emitEditorChange();
+  }, [emitEditorChange, onAddSelection]);
+
+  const handleKeyDown = useCallback((event) => {
+    const hasModifier = event.ctrlKey || event.metaKey;
+
+    if (!hasModifier) {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        insertPlainText("  ");
+      }
+
+      return;
+    }
+
+    const key = event.key.toLowerCase();
+
+    if ((key === "a" || key === "t") && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      selectAllContent();
+      return;
+    }
+
+    if (key === "b" && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      execCmd("bold");
+      return;
+    }
+
+    if (key === "i" && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      execCmd("italic");
+      return;
+    }
+
+    if (key === "u" && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      execCmd("underline");
+      return;
+    }
+
+    if (key === "z" && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      execCmd("undo");
+      return;
+    }
+
+    if ((key === "z" && event.shiftKey) || (key === "y" && !event.altKey)) {
+      event.preventDefault();
+      execCmd("redo");
+      return;
+    }
+
+    if (key === "l" && event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      execCmd("insertUnorderedList");
+      return;
+    }
+
+    if (key === "o" && event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      execCmd("insertOrderedList");
+      return;
+    }
+
+    if (key === "q" && event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      execCmd("formatBlock", "BLOCKQUOTE");
+      return;
+    }
+
+    if (key === "/" && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      execCmd("formatBlock", "PRE");
+    }
+  }, [execCmd, insertPlainText, selectAllContent]);
+
+  const handlePaste = useCallback((event) => {
+    event.preventDefault();
+
+    const pastedText = event.clipboardData.getData("text/plain");
+    document.execCommand("insertText", false, pastedText);
+    emitEditorChange();
+  }, [emitEditorChange]);
 
   return (
     <div className="relative flex h-full w-full flex-col">
       <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-[#40485d]/10 bg-[#0f1930] px-3 py-3">
+        <ToolBtn icon={<Undo2 size={13} />} onClick={() => execCmd("undo")} title="Desfazer (Ctrl/Cmd+Z)" />
+        <ToolBtn icon={<Redo2 size={13} />} onClick={() => execCmd("redo")} title="Refazer (Ctrl/Cmd+Shift+Z)" />
+
+        <Sep />
+
         <button
           type="button"
           onMouseDown={(event) => {
@@ -453,6 +618,14 @@ export default function DynamicEditor({
 
         <Sep />
 
+        <ToolBtn
+          icon={<span className="text-[10px] font-bold leading-none">Tudo</span>}
+          onClick={selectAllContent}
+          title="Selecionar todo o texto (Ctrl/Cmd+A ou T)"
+        />
+
+        <Sep />
+
         <ToolBtn icon={<Bold size={13} />} onClick={() => execCmd("bold")} title="Negrito" />
         <ToolBtn icon={<Italic size={13} />} onClick={() => execCmd("italic")} title="Italico" />
         <ToolBtn icon={<Underline size={13} />} onClick={() => execCmd("underline")} title="Sublinhado" />
@@ -465,8 +638,10 @@ export default function DynamicEditor({
 
         <Sep />
 
-        <ToolBtn icon={<List size={13} />} onClick={() => execCmd("insertUnorderedList")} title="Lista" />
-        <ToolBtn icon={<Code size={13} />} onClick={() => execCmd("formatBlock", "PRE")} title="Bloco de codigo" />
+        <ToolBtn icon={<List size={13} />} onClick={() => execCmd("insertUnorderedList")} title="Lista (Ctrl/Cmd+Shift+L)" />
+        <ToolBtn icon={<ListOrdered size={13} />} onClick={() => execCmd("insertOrderedList")} title="Lista numerada (Ctrl/Cmd+Shift+O)" />
+        <ToolBtn icon={<Quote size={13} />} onClick={() => execCmd("formatBlock", "BLOCKQUOTE")} title="Citacao (Ctrl/Cmd+Shift+Q)" />
+        <ToolBtn icon={<Code size={13} />} onClick={() => execCmd("formatBlock", "PRE")} title="Bloco de codigo (Ctrl/Cmd+/)" />
 
         <Sep />
 
@@ -598,12 +773,10 @@ export default function DynamicEditor({
           suppressContentEditableWarning
           spellCheck={false}
           onMouseUp={handleMouseUp}
+          onKeyDown={handleKeyDown}
           onKeyUp={() => setTooltip(null)}
-          onInput={(event) => {
-            if (onChange) {
-              onChange(event.currentTarget.innerText);
-            }
-          }}
+          onInput={emitEditorChange}
+          onPaste={handlePaste}
           className="min-h-full whitespace-pre-wrap p-6 font-mono leading-7 text-[#dee5ff] outline-none"
           style={{ fontFamily: fontFamily.value, fontSize: `${fontSize}px` }}
         />
@@ -619,6 +792,18 @@ export default function DynamicEditor({
             <Plus className="h-4 w-4" strokeWidth={2.5} />
           </button>
         ) : null}
+      </div>
+
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#40485d]/10 bg-[#0f1930] px-4 py-2 text-[10px] text-[#6d758c]">
+        <div className="flex flex-wrap items-center gap-3">
+          <span>{editorStats.lines} linhas</span>
+          <span>{editorStats.words} palavras</span>
+          <span>{editorStats.characters} caracteres</span>
+        </div>
+
+        <span className="hidden text-right xl:block">
+          Atalhos: Ctrl/Cmd+A ou T, B, I, U, Shift+L, Shift+O, Shift+Q, /, Z
+        </span>
       </div>
     </div>
   );

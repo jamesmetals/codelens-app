@@ -156,15 +156,11 @@ function SupportLink({ icon, label, onClick }) {
 }
 
 function TechnologyCard({
-  maxContentCount,
   onEdit,
   onOpen,
   technology,
 }) {
   const contentCount = technology.contents?.length || 0;
-  const trackWidth = maxContentCount
-    ? Math.max(18, Math.round((contentCount / maxContentCount) * 100))
-    : 18;
   const badgeToneClass = getBadgeClasses(technology.cardTone);
 
   return (
@@ -311,7 +307,6 @@ function SectionRail({
             {group.items.map((technology) => (
               <TechnologyCard
                 key={technology.id}
-                maxContentCount={maxContentCount}
                 onEdit={onEditTechnology}
                 onOpen={onOpenTechnology}
                 technology={technology}
