@@ -18,6 +18,7 @@ vite-*.log
 .agent/
 .codex/
 .codex-temp/
+.openclaude/
 ANALISE_E_SUGESTOES.md
 PLAN-*.md
 Arquivos complementares/
