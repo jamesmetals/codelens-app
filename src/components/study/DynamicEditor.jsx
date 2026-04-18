@@ -254,7 +254,32 @@ export default function DynamicEditor({
     // (e.g. the user opened a different lesson). If the change came from
     // the user typing, `initialContent` will equal what `onInput` already
     // put in the DOM, so we skip the update to preserve the cursor.
-    if (initialContent === externalContentRef.current) return;
+    const guardEqual = initialContent === externalContentRef.current;
+    // #region agent log
+    fetch("http://127.0.0.1:7248/ingest/ebf8239d-0d53-473f-89d0-8079f8a65d8e", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "836bc4" },
+      body: JSON.stringify({
+        sessionId: "836bc4",
+        runId: "pre-fix",
+        hypothesisId: "B",
+        location: "DynamicEditor.jsx:initialContent-effect",
+        message: guardEqual ? "SKIP innerHTML (guard match)" : "APPLY innerHTML (guard mismatch)",
+        data: {
+          guardEqual,
+          initialLen: (initialContent ?? "").length,
+          refLen: (externalContentRef.current ?? "").length,
+          initialEndsNewline:
+            typeof initialContent === "string" && /\n$/.test(initialContent),
+          refEndsNewline:
+            typeof externalContentRef.current === "string" &&
+            /\n$/.test(externalContentRef.current),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    if (guardEqual) return;
 
     externalContentRef.current = initialContent;
     editorRef.current.innerHTML = toEditorHtml(initialContent);
@@ -617,6 +642,25 @@ export default function DynamicEditor({
             // DOM re-render (which would reset the cursor) when the parent
             // propagates this same value back through `initialContent`.
             externalContentRef.current = text;
+            // #region agent log
+            fetch("http://127.0.0.1:7248/ingest/ebf8239d-0d53-473f-89d0-8079f8a65d8e", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "836bc4" },
+              body: JSON.stringify({
+                sessionId: "836bc4",
+                runId: "pre-fix",
+                hypothesisId: "C",
+                location: "DynamicEditor.jsx:onInput",
+                message: "input: innerText length + tail sample",
+                data: {
+                  len: text.length,
+                  tail: text.slice(-24),
+                  endsNewline: /\n$/.test(text),
+                },
+                timestamp: Date.now(),
+              }),
+            }).catch(() => {});
+            // #endregion
             if (onChange) {
               onChange(text);
             }

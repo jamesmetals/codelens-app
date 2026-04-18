@@ -152,16 +152,52 @@ export default function StudyRoom({
   const isLogged = Boolean(authUser);
   const avatarUrl = getAvatarUrl(authUser);
 
+  // Sincroniza com a lição aberta apenas quando a identidade da lição muda.
+  // `activeLesson` ganha nova referência com frequência (ex.: applyTechList no App)
+  // mesmo com o mesmo id; resetar título/código nesse caso sobrescrevia edições
+  // locais com fullCode desatualizado da lista e reescrevia o contentEditable.
   useEffect(() => {
-    setLocalTitle(activeLesson?.title || "");
-    setLocalSummary(activeLesson?.summary || "");
-    setCurrentCode(activeLesson?.fullCode || "");
-    setNotes(activeLesson?.studyNotes || []);
-    setLessonFlags(activeLesson?.flags || []);
+    // #region agent log
+    fetch("http://127.0.0.1:7248/ingest/ebf8239d-0d53-473f-89d0-8079f8a65d8e", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "836bc4" },
+      body: JSON.stringify({
+        sessionId: "836bc4",
+        runId: "post-fix",
+        hypothesisId: "A",
+        location: "StudyRoom.jsx:activeLesson-effect",
+        message: "lessonId effect: reset local state from lesson",
+        data: {
+          lessonId: activeLesson?.id ?? null,
+          fullCodeLen: (activeLesson?.fullCode || "").length,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    if (!activeLesson?.id) {
+      setLocalTitle("");
+      setLocalSummary("");
+      setCurrentCode("");
+      setNotes([]);
+      setLessonFlags([]);
+      setActiveSpanId(null);
+      setSaveFeedback("");
+      setAiError("");
+      return;
+    }
+
+    const lesson = activeLesson;
+    setLocalTitle(lesson.title || "");
+    setLocalSummary(lesson.summary || "");
+    setCurrentCode(lesson.fullCode || "");
+    setNotes(lesson.studyNotes || []);
+    setLessonFlags(lesson.flags || []);
     setActiveSpanId(null);
     setSaveFeedback("");
     setAiError("");
-  }, [activeLesson]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intencional: só ao mudar id da lição
+  }, [activeLesson?.id]);
 
   const handleSave = async () => {
     setIsSaving(true);
