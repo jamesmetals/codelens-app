@@ -235,6 +235,10 @@ export default function DynamicEditor({
 }) {
   const editorRef = useRef(null);
   const savedRangeRef = useRef(null);
+  // Tracks the last content value that was written to the DOM by an external change
+  // (e.g. switching lessons). This prevents the effect from re-rendering when the
+  // user is simply typing (which would reset the cursor position).
+  const externalContentRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
   const [fontSize, setFontSize] = useState(14);
   const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[0]);
@@ -246,20 +250,14 @@ export default function DynamicEditor({
   useEffect(() => {
     if (!editorRef.current) return;
 
-    // Save current selection before updating content
-    const selection = window.getSelection();
-    let savedRange = null;
-    if (selection.rangeCount > 0) {
-      savedRange = selection.getRangeAt(0).cloneRange();
-    }
+    // Only rewrite the DOM when the content truly changed externally
+    // (e.g. the user opened a different lesson). If the change came from
+    // the user typing, `initialContent` will equal what `onInput` already
+    // put in the DOM, so we skip the update to preserve the cursor.
+    if (initialContent === externalContentRef.current) return;
 
+    externalContentRef.current = initialContent;
     editorRef.current.innerHTML = toEditorHtml(initialContent);
-
-    // Restore selection after updating content
-    if (savedRange) {
-      selection.removeAllRanges();
-      selection.addRange(savedRange);
-    }
   }, [initialContent]);
 
   useEffect(() => {
@@ -614,8 +612,13 @@ export default function DynamicEditor({
           onMouseUp={handleMouseUp}
           onKeyUp={() => setTooltip(null)}
           onInput={(event) => {
+            const text = event.currentTarget.innerText;
+            // Keep the ref in sync so the effect guard doesn't trigger a
+            // DOM re-render (which would reset the cursor) when the parent
+            // propagates this same value back through `initialContent`.
+            externalContentRef.current = text;
             if (onChange) {
-              onChange(event.currentTarget.innerText);
+              onChange(text);
             }
           }}
           onKeyDown={(event) => {
