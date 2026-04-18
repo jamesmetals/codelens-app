@@ -95,6 +95,100 @@ button {
   opacity: 0;
 }
 
+[data-reveal="view-nav"],
+[data-reveal="view-main"] {
+  opacity: 0;
+}
+
+/* Neon flags — use style={{ "--flag": color }} no elemento */
+.flag-neon-pill {
+  --flag: #69daff;
+  border: 1px solid color-mix(in srgb, var(--flag) 52%, #ffffff 14%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--flag) 14%, transparent),
+    color-mix(in srgb, var(--flag) 7%, transparent)
+  );
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--flag) 42%, transparent),
+    0 0 22px color-mix(in srgb, var(--flag) 16%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--flag) 22%, transparent);
+  transition:
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.flag-neon-pill span {
+  text-shadow: 0 0 10px color-mix(in srgb, var(--flag) 38%, transparent);
+}
+
+.group:hover .flag-neon-pill,
+.flag-neon-pill:hover {
+  box-shadow:
+    0 0 14px color-mix(in srgb, var(--flag) 52%, transparent),
+    0 0 32px color-mix(in srgb, var(--flag) 22%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--flag) 30%, transparent);
+  transform: translateY(-0.5px);
+}
+
+.flag-neon-dot {
+  --flag: #69daff;
+  box-shadow:
+    0 0 6px color-mix(in srgb, var(--flag) 55%, transparent),
+    0 0 14px color-mix(in srgb, var(--flag) 28%, transparent);
+  transition:
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+.group:hover .flag-neon-dot,
+.flag-neon-dot:hover {
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--flag) 65%, transparent),
+    0 0 20px color-mix(in srgb, var(--flag) 35%, transparent);
+}
+
+.surface-lift {
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease;
+}
+
+.surface-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.modal-enter-backdrop {
+  animation: codelens-modal-backdrop 220ms ease-out both;
+}
+
+.modal-enter-panel {
+  animation: codelens-modal-panel 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes codelens-modal-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes codelens-modal-panel {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 .app-shell {
   position: relative;
   overflow: hidden;
@@ -485,11 +579,34 @@ button {
     opacity: 1;
   }
 
+  [data-reveal="view-nav"],
+  [data-reveal="view-main"] {
+    opacity: 1;
+  }
+
   .hero-orb,
   .pulse-ring,
   .progress-fill {
     animation: none !important;
     transition: none !important;
+  }
+
+  .flag-neon-pill,
+  .flag-neon-dot {
+    transition: none;
+  }
+
+  .flag-neon-pill span {
+    text-shadow: none;
+  }
+
+  .surface-lift:hover {
+    transform: none;
+  }
+
+  .modal-enter-backdrop,
+  .modal-enter-panel {
+    animation: none !important;
   }
 
   .progress-fill {

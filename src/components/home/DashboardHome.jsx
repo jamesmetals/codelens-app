@@ -268,12 +268,13 @@ function InfoDialog({ kind, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="dashboard-info-title"
     >
-      <div className="max-w-md rounded-xl border border-dashboard-border/30 bg-dashboard-surface p-6 shadow-xl">
+      <div className="modal-enter-backdrop absolute inset-0 bg-black/60" aria-hidden />
+      <div className="modal-enter-panel relative z-10 max-w-md rounded-xl border border-dashboard-border/30 bg-dashboard-surface p-6 shadow-xl">
         <div className="mb-4 flex items-start justify-between gap-4">
           <h2 id="dashboard-info-title" className="text-lg font-bold text-dashboard-text">
             {copy.title}
@@ -305,7 +306,7 @@ function TechnologyCard({ onEdit, onOpen, technology }) {
   const badgeToneClass = getBadgeClasses(technology.cardTone);
 
   return (
-    <article className="group min-w-[320px] overflow-hidden rounded-xl border border-dashboard-border/10 bg-dashboard-surface transition-all duration-300 hover:bg-dashboard-elevated">
+    <article className="group surface-lift min-w-[320px] overflow-hidden rounded-xl border border-dashboard-border/10 bg-dashboard-surface duration-300 hover:border-dashboard-accent/25 hover:bg-dashboard-elevated">
       <div className="relative h-44 overflow-hidden">
         <button
           type="button"
@@ -359,7 +360,7 @@ function TechnologyDetailItem({ technology, maxContentCount, onEdit, onOpen }) {
   const trackWidth = maxContentCount ? Math.max(8, Math.round((contentCount / maxContentCount) * 100)) : 8;
 
   return (
-    <div className="group flex w-full items-center gap-4 rounded-lg border border-dashboard-border/10 bg-dashboard-surface p-4 transition-colors hover:bg-dashboard-elevated">
+    <div className="group surface-lift flex w-full items-center gap-4 rounded-lg border border-dashboard-border/10 bg-dashboard-surface p-4 hover:border-dashboard-accent/20 hover:bg-dashboard-elevated">
       <button
         type="button"
         onClick={() => onOpen(technology)}

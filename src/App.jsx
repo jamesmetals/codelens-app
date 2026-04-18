@@ -890,6 +890,45 @@ function App() {
     };
   }, [resolvedView]);
 
+  useEffect(() => {
+    if (resolvedView !== VIEW_TECH_LIST && resolvedView !== VIEW_STUDY) {
+      return undefined;
+    }
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (reduceMotion) {
+      return undefined;
+    }
+
+    const timeline = anime.timeline({
+      easing: "easeOutExpo",
+      duration: 750,
+    });
+
+    timeline
+      .add({
+        targets: '[data-reveal="view-nav"]',
+        opacity: [0, 1],
+        translateY: [-14, 0],
+        duration: 520,
+      })
+      .add(
+        {
+          targets: '[data-reveal="view-main"]',
+          opacity: [0, 1],
+          translateY: [22, 0],
+          duration: 680,
+        },
+        "-=300",
+      );
+
+    return () => {
+      anime.remove('[data-reveal="view-nav"]');
+      anime.remove('[data-reveal="view-main"]');
+    };
+  }, [resolvedView]);
+
   return (
     <div className="app-shell">
       {resolvedView === VIEW_HOME ? (

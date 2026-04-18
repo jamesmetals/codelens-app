@@ -187,9 +187,9 @@ function ImageCropModal({ imageDraft, isOpen, onApply, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
+      <div className="modal-enter-backdrop absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0f1930] shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
+      <div className="modal-enter-panel relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0f1930] shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
         <header className="flex items-center justify-between bg-[#141f38] px-6 py-4">
           <div className="flex items-center gap-3">
             <Crop className="h-5 w-5 text-sky-300" />
@@ -454,9 +454,9 @@ export default function TechnologyModal({
   return (
     <>
       <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+        <div className="modal-enter-backdrop absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
 
-        <div className="relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0f1930] shadow-[0_32px_90px_rgba(0,0,0,0.55)]">
+        <div className="modal-enter-panel relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0f1930] shadow-[0_32px_90px_rgba(0,0,0,0.55)]">
           <header className="flex items-center justify-between bg-[#141f38] px-6 py-5">
             <div className="flex items-center gap-3">
               <Pencil className="h-5 w-5 text-sky-300" />
@@ -695,11 +695,11 @@ export default function TechnologyModal({
       {isDeleteConfirmOpen && mode === "edit" ? (
         <div className="fixed inset-0 z-[145] flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="modal-enter-backdrop absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => !isDeleting && setIsDeleteConfirmOpen(false)}
           />
 
-          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-xl border border-white/10 bg-[#0f1930] shadow-[0_32px_90px_rgba(0,0,0,0.55)]">
+          <div className="modal-enter-panel relative z-10 w-full max-w-md overflow-hidden rounded-xl border border-white/10 bg-[#0f1930] shadow-[0_32px_90px_rgba(0,0,0,0.55)]">
             <header className="flex items-center gap-3 border-b border-white/8 bg-[#141f38] px-6 py-4">
               <Trash2 className="h-5 w-5 text-rose-300" />
               <h2 className="font-['Space_Grotesk'] text-lg font-semibold text-white">

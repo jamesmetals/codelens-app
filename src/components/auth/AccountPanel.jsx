@@ -9,8 +9,14 @@ export default function AccountPanel({
   syncNotice,
 }) {
   return (
-    <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md" onClick={onClose}>
-      <div className="soft-panel w-full max-w-lg p-6" onClick={(event) => event.stopPropagation()}>
+    <div
+      className="modal-enter-backdrop fixed inset-0 z-[75] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <div
+        className="modal-enter-panel soft-panel w-full max-w-lg p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-300/70">

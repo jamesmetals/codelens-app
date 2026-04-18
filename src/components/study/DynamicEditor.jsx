@@ -593,9 +593,12 @@ export default function DynamicEditor({
                         event.preventDefault();
                         if (onToggleFlag) onToggleFlag(flag.id);
                       }}
-                      className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs transition-colors hover:bg-[#141f38] ${isActive ? "bg-[#141f38]/60" : ""}`}
+                      className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs transition-colors hover:bg-[#141f38] ${isActive ? "bg-[#141f38]/60 ring-1 ring-[#69daff]/35" : ""}`}
                     >
-                      <div className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: flag.color, opacity: isActive ? 1 : 0.4 }} />
+                      <div
+                        className={`flag-neon-dot h-3 w-3 flex-shrink-0 rounded-full ${isActive ? "" : "opacity-40"}`}
+                        style={{ backgroundColor: flag.color, "--flag": flag.color }}
+                      />
                       <span className={`truncate flex-1 font-['Manrope'] ${isActive ? "text-[#dee5ff] font-bold" : "text-[#a3aac4]"}`}>
                         {flag.name}
                       </span>

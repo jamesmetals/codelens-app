@@ -62,7 +62,7 @@ function ListCard({ content, onDelete, onOpen, flagsList }) {
 
   return (
     <article
-      className="relative group rounded-xl border border-[#40485d]/20 bg-[#0f1930] transition-colors hover:bg-[#141f38]"
+      className="relative group surface-lift rounded-xl border border-[#40485d]/20 bg-[#0f1930] hover:border-[#69daff]/20 hover:bg-[#141f38]"
     >
       <button
         type="button"
@@ -81,7 +81,11 @@ function ListCard({ content, onDelete, onOpen, flagsList }) {
 
             <div className="absolute top-4 right-14 flex items-center gap-1.5">
               {contentFlags.map(flag => (
-                <div key={flag.id} className="flex items-center rounded-md px-2.5 py-1" style={{ backgroundColor: `color-mix(in srgb, ${flag.color} 15%, transparent)` }}>
+                <div
+                  key={flag.id}
+                  className="flag-neon-pill flex items-center rounded-md px-2.5 py-1"
+                  style={{ "--flag": flag.color }}
+                >
                   <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest" style={{ color: flag.color }}>
                     {flag.name}
                   </span>
@@ -117,7 +121,7 @@ function ListCard({ content, onDelete, onOpen, flagsList }) {
 
 function BlockCard({ content, onDelete, onOpen, flagsList }) {
   return (
-    <article className="group overflow-hidden rounded-xl border border-[#40485d]/20 bg-[#0f1930] transition-colors hover:bg-[#141f38]">
+    <article className="group surface-lift overflow-hidden rounded-xl border border-[#40485d]/20 bg-[#0f1930] hover:border-[#69daff]/20 hover:bg-[#141f38]">
       <button
         type="button"
         onClick={() => onOpen(content)}
@@ -133,7 +137,12 @@ function BlockCard({ content, onDelete, onOpen, flagsList }) {
               {content.flags.map(id => {
                 const flag = flagsList.find(f => f.id === id);
                 return flag ? (
-                  <span key={id} title={flag.name} className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: flag.color, boxShadow: `0 0 6px ${flag.color}` }} />
+                  <span
+                    key={id}
+                    title={flag.name}
+                    className="flag-neon-dot h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: flag.color, "--flag": flag.color }}
+                  />
                 ) : null;
               })}
             </div>
@@ -164,7 +173,7 @@ function BlockCard({ content, onDelete, onOpen, flagsList }) {
 
 function CompactCard({ content, onDelete, onOpen, flagsList }) {
   return (
-    <article className="rounded-lg border border-[#40485d]/20 bg-[#0f1930] transition-colors hover:bg-[#141f38]">
+    <article className="group relative surface-lift rounded-lg border border-[#40485d]/20 bg-[#0f1930] hover:border-[#69daff]/20 hover:bg-[#141f38]">
       <button
         type="button"
         onClick={() => onOpen(content)}
@@ -180,7 +189,12 @@ function CompactCard({ content, onDelete, onOpen, flagsList }) {
               {content.flags.map(id => {
                 const flag = flagsList.find(f => f.id === id);
                 return flag ? (
-                  <span key={id} title={flag.name} className="h-2 w-2 rounded-full shadow-sm" style={{ backgroundColor: flag.color }} />
+                  <span
+                    key={id}
+                    title={flag.name}
+                    className="flag-neon-dot h-2 w-2 rounded-full"
+                    style={{ backgroundColor: flag.color, "--flag": flag.color }}
+                  />
                 ) : null;
               })}
             </div>
@@ -218,11 +232,11 @@ function ConfirmDeleteModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="modal-enter-backdrop absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={() => !isDeleting && onClose()}
       />
 
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-[#40485d]/30 bg-[#0f1930] p-6 shadow-2xl">
+      <div className="modal-enter-panel relative z-10 w-full max-w-md rounded-xl border border-[#40485d]/30 bg-[#0f1930] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="font-['Manrope'] text-lg font-bold text-[#dee5ff]">
@@ -362,7 +376,10 @@ export default function TechnologyContentsList({
     <div className="relative min-h-screen bg-[#060e20] text-[#dee5ff]">
       <div className="fixed inset-0 bg-[#060e20]" />
 
-      <aside className="fixed left-0 top-0 z-[60] hidden h-full w-64 flex-col gap-y-6 bg-[#091328] py-8 lg:flex">
+      <aside
+        data-reveal="view-nav"
+        className="fixed left-0 top-0 z-[60] hidden h-full w-64 flex-col gap-y-6 bg-[#091328] py-8 lg:flex"
+      >
         <div className="mb-4 px-8">
           <button type="button" onClick={onBack} className="text-left">
             <div className="flex items-center gap-3 mb-2">
@@ -437,6 +454,7 @@ export default function TechnologyContentsList({
         </div>
       </aside>
 
+      <div data-reveal="view-main" className="min-h-screen">
       <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between bg-[#060e20]/80 px-4 backdrop-blur-md sm:px-6 lg:ml-64 lg:max-w-[calc(100%-16rem)] lg:px-8">
         <div className="flex flex-1 items-center gap-x-6">
           <div className="relative w-full max-w-md">
@@ -601,6 +619,7 @@ export default function TechnologyContentsList({
           title={deleteModal.item?.title}
         />
       </main>
+      </div>
     </div>
   );
 }

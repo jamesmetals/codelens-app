@@ -64,9 +64,9 @@ export default function FlagManagerModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="relative z-10 flex w-full max-w-4xl max-h-[85vh] flex-col overflow-hidden rounded-xl border border-[#40485d]/30 bg-[#0f1930] shadow-2xl">
+      <div className="modal-enter-backdrop absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="modal-enter-panel relative z-10 flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-[#40485d]/30 bg-[#0f1930] shadow-2xl">
         <header className="flex items-center justify-between border-b border-[#40485d]/30 bg-[#091328] px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#141f38] text-[#a3aac4]">
@@ -100,17 +100,20 @@ export default function FlagManagerModal({
             
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {flags.map(flag => (
-                <div 
+                <div
                   key={flag.id}
                   onClick={() => { setActiveTab("filter"); setSelectedFlagFilter(flag.id); }}
-                  className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${
+                  className={`group flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${
                     activeTab === "filter" && selectedFlagFilter === flag.id
-                      ? "border-[#69daff] bg-[#141f38]"
+                      ? "border-[#69daff] bg-[#141f38] shadow-[0_0_24px_rgba(105,218,255,0.12)]"
                       : "border-[#40485d]/20 bg-transparent hover:bg-[#141f38]"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: flag.color || "#6d758c" }} />
+                    <div
+                      className="flag-neon-dot h-3 w-3 rounded-full"
+                      style={{ backgroundColor: flag.color || "#6d758c", "--flag": flag.color || "#6d758c" }}
+                    />
                     <span className="font-['Manrope'] text-sm font-bold text-[#dee5ff]">
                       {flag.name}
                     </span>

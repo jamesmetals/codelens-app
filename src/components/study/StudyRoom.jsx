@@ -76,7 +76,7 @@ function NoteCard({ note, onHighlight, onTextChange }) {
 
   return (
     <article
-      className={`overflow-hidden rounded-xl border bg-[#141f38] transition-colors ${
+      className={`surface-lift overflow-hidden rounded-xl border bg-[#141f38] hover:border-[#69daff]/20 ${
         note.isNew ? "border-white/20" : "border-[#40485d]/20"
       }`}
     >
@@ -283,7 +283,10 @@ export default function StudyRoom({
     <div className="relative min-h-screen bg-[#060e20] text-[#dee5ff]">
       <div className="fixed inset-0 bg-[#060e20]" />
 
-      <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-[#40485d]/10 bg-[#060e20]/85 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+      <header
+        data-reveal="view-nav"
+        className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-[#40485d]/10 bg-[#060e20]/85 px-4 backdrop-blur-md sm:px-6 lg:px-8"
+      >
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -368,10 +371,13 @@ export default function StudyRoom({
         </div>
       </header>
 
-      <main className="relative z-10 min-h-screen bg-[#060e20] px-4 pb-10 pt-20 sm:px-6 lg:px-8">
+      <main
+        data-reveal="view-main"
+        className="relative z-10 min-h-screen bg-[#060e20] px-4 pb-10 pt-20 sm:px-6 lg:px-8"
+      >
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
           <div className="min-w-0 flex-1 space-y-6">
-            <section className="rounded-xl border border-[#40485d]/10 bg-[#0f1930]">
+            <section className="surface-lift rounded-xl border border-[#40485d]/10 bg-[#0f1930] hover:border-[#69daff]/15">
               <div className="flex items-center justify-between border-b border-[#40485d]/10 bg-[#091328] px-4 py-3">
                 <div className="flex items-center gap-2">
                   <BookMarked className="h-4 w-4 text-[#a3aac4]" />
@@ -444,7 +450,7 @@ export default function StudyRoom({
               )}
             </section>
 
-            <section className="overflow-hidden rounded-xl border border-[#40485d]/10 bg-[#0f1930]">
+            <section className="surface-lift overflow-hidden rounded-xl border border-[#40485d]/10 bg-[#0f1930] hover:border-[#69daff]/15">
               <div className="flex items-center justify-between border-b border-[#40485d]/10 bg-[#091328] px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Code2 className="h-4 w-4 text-[#a3aac4]" />
@@ -472,7 +478,7 @@ export default function StudyRoom({
           </div>
 
           <aside className={`order-last shrink-0 xl:sticky xl:top-20 xl:h-[calc(100vh-6.5rem)] ${notesCollapsed ? "xl:w-20" : "xl:w-[340px]"}`}>
-            <section className="flex h-full overflow-hidden rounded-xl border border-[#40485d]/10 bg-[#0f1930]">
+            <section className="surface-lift flex h-full overflow-hidden rounded-xl border border-[#40485d]/10 bg-[#0f1930] hover:border-[#69daff]/15">
               <div className="flex min-w-0 flex-1 flex-col">
                 <div className="flex items-center gap-3 border-b border-[#40485d]/10 bg-[#091328] px-5 py-4">
                   <MessageSquareText className="h-4 w-4 text-[#a3aac4]" />
