@@ -97,4 +97,6 @@ Antes do deploy:
 
 ## Estado do repositorio
 
+Esta é a **última versão FUNCIONAL** da plataforma (com a correção do bug de cursor no editor e o flow de sync funcionando estável).
+
 Este repositório foi limpo para manter apenas o que faz parte do produto e do setup real. Artefatos locais, logs, arquivos de sistema e material interno de planejamento foram removidos do versionamento.
