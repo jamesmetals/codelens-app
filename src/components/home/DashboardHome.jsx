@@ -67,17 +67,6 @@ const INFO_COPY = {
   },
 };
 
-function getSectionAccent(category, fallback) {
-  const map = {
-    Fundamentos: "Habilidades essenciais",
-    Frameworks: "UI e logica",
-    Infraestrutura: "Sistemas e fluxo",
-    "Minhas tecnologias": "Bibliotecas personalizadas",
-  };
-
-  return map[category] || fallback || "Bibliotecas organizadas";
-}
-
 function getBadgeClasses(tone) {
   const map = {
     sky: "text-dashboard-accent",
@@ -122,7 +111,6 @@ function getTechnologyGroups(technologies, searchTerm, categoryList = []) {
     if (!groupedMap.has(category)) {
       groupedMap.set(category, {
         category,
-        accent: getSectionAccent(category, technology.categoryAccent),
         items: [],
       });
     }
@@ -149,13 +137,19 @@ function SidebarItem({ active = false, icon, label, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`dashboard-focusring group flex w-full items-center px-8 py-3 text-left transition-all ${
+      className={`dashboard-focusring group relative flex w-full items-center overflow-hidden rounded-r-lg px-8 py-3 text-left transition-all duration-200 ease-out active:scale-[0.99] ${
         active
-          ? "border-r-2 border-dashboard-accent bg-gradient-to-r from-dashboard-accent/10 to-transparent text-dashboard-accent"
-          : "text-dashboard-muted hover:bg-dashboard-elevated hover:text-dashboard-text"
+          ? "bg-gradient-to-r from-dashboard-accent/10 to-transparent text-dashboard-accent"
+          : "text-dashboard-muted before:absolute before:left-0 before:top-1/2 before:h-0 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-dashboard-accent before:opacity-0 before:transition-all before:duration-300 before:ease-out hover:before:h-8 hover:before:opacity-90 hover:bg-gradient-to-r hover:from-dashboard-accent/10 hover:to-transparent hover:text-dashboard-text"
       }`}
     >
-      {createElement(icon, { className: "mr-3 h-[18px] w-[18px]" })}
+      <span
+        className={`mr-3 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center transition-transform duration-200 ease-out ${
+          active ? "scale-100 group-hover:scale-105" : "group-hover:scale-110 group-hover:-translate-y-px"
+        }`}
+      >
+        {createElement(icon, { className: "h-[18px] w-[18px]" })}
+      </span>
       <span className="text-[10px] font-bold uppercase tracking-[0.24em]">{label}</span>
     </button>
   );
@@ -166,9 +160,11 @@ function SupportLink({ icon, label, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="dashboard-focusring group flex items-center py-2 text-dashboard-muted transition-colors hover:text-dashboard-text"
+      className="dashboard-focusring group flex w-full items-center rounded-md py-2 text-dashboard-muted transition-all duration-200 ease-out hover:translate-x-1 hover:bg-white/[0.04] hover:text-dashboard-text active:scale-[0.99]"
     >
-      {createElement(icon, { className: "mr-2 h-4 w-4" })}
+      <span className="mr-2 inline-flex h-4 w-4 shrink-0 items-center justify-center transition-transform duration-200 ease-out group-hover:scale-110 group-hover:text-dashboard-accent/90">
+        {createElement(icon, { className: "h-4 w-4" })}
+      </span>
       <span className="text-[10px] uppercase tracking-[0.24em]">{label}</span>
     </button>
   );
@@ -248,7 +244,7 @@ function DashboardNavContent({
             onCreateTechnology();
             afterNavigate();
           }}
-          className="dashboard-focusring rounded-md bg-gradient-to-br from-dashboard-accent to-dashboard-accent-mid py-2 text-xs font-bold text-dashboard-accent-cta shadow-lg shadow-dashboard-accent/20"
+          className="dashboard-focusring rounded-md bg-[#9ed0ff] py-2 text-xs font-bold text-[#06111f] shadow-sm transition-colors hover:bg-[#b3e0ff]"
         >
           Adicionar tecnologia
         </button>
@@ -343,15 +339,31 @@ function TechnologyCard({ onEdit, onOpen, technology }) {
 }
 
 function TechnologyListItem({ technology, onOpen }) {
+  const contentCount = technology.contents?.length || 0;
+  const meta = `${contentCount} conteudos`;
+
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(technology)}
-      className="dashboard-focusring flex w-full items-center gap-3 rounded-lg border border-dashboard-border/20 bg-dashboard-surface px-4 py-3 text-left transition-colors hover:border-dashboard-accent/30 hover:bg-dashboard-elevated xl:w-64"
-    >
-      <TechnologyArtwork technology={technology} className="h-8 w-8 flex-shrink-0 rounded border-0 bg-black" />
-      <span className="truncate text-sm font-bold text-dashboard-text">{technology.name}</span>
-    </button>
+    <li>
+      <button
+        type="button"
+        onClick={() => onOpen(technology)}
+        className="group/dashboard-list-item dashboard-focusring flex w-full min-w-0 items-baseline justify-start rounded-sm py-2 pl-1 pr-1 text-left transition-colors hover:bg-white/5"
+        aria-label={`Abrir biblioteca ${technology.name} - ${meta}`}
+      >
+        <span className="min-w-0 max-w-[calc(100%-12rem)] truncate text-sm text-dashboard-text transition-colors group-hover/dashboard-list-item:text-dashboard-accent">
+          {technology.name}
+        </span>
+        <span
+          className="shrink-0 px-[10px] text-sm text-dashboard-muted transition-colors group-hover/dashboard-list-item:text-dashboard-accent/55"
+          aria-hidden
+        >
+          -
+        </span>
+        <span className="shrink-0 text-[10px] text-dashboard-muted transition-colors group-hover/dashboard-list-item:text-dashboard-accent/55 sm:text-xs">
+          {meta}
+        </span>
+      </button>
+    </li>
   );
 }
 
@@ -410,6 +422,10 @@ function SectionRail({
   const trackRef = useRef(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  useEffect(() => {
+    setIsCollapsed(false);
+  }, [displayMode]);
+
   const scrollTrackForward = useCallback(() => {
     trackRef.current?.scrollBy({ left: 348, behavior: "smooth" });
   }, []);
@@ -435,9 +451,6 @@ function SectionRail({
               <ChevronDown className="h-3 w-3" />
             </div>
           </button>
-          <span className="mb-1 hidden text-[10px] uppercase tracking-[0.2em] text-dashboard-accent-mid sm:inline-block">
-            {group.accent}
-          </span>
         </div>
         {displayMode === "cards" ? (
           <button
@@ -495,11 +508,11 @@ function SectionRail({
           )}
 
           {displayMode === "list" && (
-            <div className="flex flex-row flex-wrap gap-4 pb-4 pl-2 pr-2">
+            <ul className="list-none pb-4 pl-2 pr-2">
               {group.items.map((technology) => (
                 <TechnologyListItem key={technology.id} onOpen={onOpenTechnology} technology={technology} />
               ))}
-            </div>
+            </ul>
           )}
 
           {displayMode === "details" && (
@@ -719,7 +732,7 @@ export default function DashboardHome({
           <button
             type="button"
             onClick={onCreateTechnology}
-            className="dashboard-focusring hidden rounded-md bg-gradient-to-r from-dashboard-accent to-dashboard-accent-mid px-4 py-2 text-sm font-bold tracking-tight text-dashboard-accent-cta transition-all hover:shadow-lg sm:block"
+            className="dashboard-focusring hidden rounded-md bg-[#9ed0ff] px-4 py-2 text-sm font-bold tracking-tight text-[#06111f] shadow-sm transition-colors hover:bg-[#b3e0ff] sm:block"
           >
             Adicionar tecnologia
           </button>
@@ -875,7 +888,7 @@ export default function DashboardHome({
                 <button
                   type="button"
                   onClick={onCreateTechnology}
-                  className="dashboard-focusring mt-6 inline-flex rounded-md bg-gradient-to-r from-dashboard-accent to-dashboard-accent-mid px-6 py-2 text-sm font-bold text-dashboard-accent-cta"
+                  className="dashboard-focusring mt-6 inline-flex rounded-md bg-[#9ed0ff] px-6 py-2 text-sm font-bold text-[#06111f] shadow-sm transition-colors hover:bg-[#b3e0ff]"
                 >
                   Adicionar tecnologia
                 </button>
