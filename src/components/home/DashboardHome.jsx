@@ -302,12 +302,12 @@ function TechnologyCard({ onEdit, onOpen, technology }) {
   const badgeToneClass = getBadgeClasses(technology.cardTone);
 
   return (
-    <article className="group surface-lift min-w-[320px] overflow-hidden rounded-xl border border-dashboard-border/10 bg-dashboard-surface duration-300 hover:border-dashboard-accent/25 hover:bg-dashboard-elevated">
-      <div className="relative h-44 overflow-hidden">
+    <article className="group min-w-[320px] overflow-hidden rounded-xl border-0 bg-dashboard-surface shadow-[0_2px_6px_rgba(0,0,0,0.04),0_12px_36px_-8px_rgba(0,0,0,0.14)] transition-[transform,box-shadow,background-color] duration-300 ease-out hover:-translate-y-0.5 hover:bg-dashboard-elevated hover:shadow-[0_4px_14px_rgba(0,0,0,0.06),0_18px_44px_-6px_rgba(0,0,0,0.16)]">
+      <div className="relative h-44 overflow-hidden rounded-t-xl">
         <button
           type="button"
           onClick={() => onEdit(technology)}
-          className="dashboard-focusring absolute left-4 top-4 z-20 inline-flex h-8 w-8 items-center justify-center rounded-md border border-dashboard-border/40 bg-dashboard-elevated/85 text-dashboard-text transition-colors hover:border-dashboard-accent/40 hover:text-dashboard-accent"
+          className="dashboard-focusring absolute left-4 top-4 z-20 inline-flex h-8 w-8 items-center justify-center rounded-md border-0 bg-black/45 text-dashboard-text shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition-colors hover:bg-black/55 hover:text-dashboard-accent"
           aria-label={`Editar ${technology.name}`}
         >
           <Pencil className="h-4 w-4" />
@@ -315,7 +315,10 @@ function TechnologyCard({ onEdit, onOpen, technology }) {
 
         <button type="button" onClick={() => onOpen(technology)} className="block h-full w-full text-left">
           <TechnologyArtwork technology={technology} className="h-full w-full rounded-none border-0" />
-          <div className="technology-card-image-fade absolute inset-0" />
+          <div className="pointer-events-none absolute inset-0 z-[1]" aria-hidden>
+            <div className="technology-card-image-fade-base absolute inset-0 transition-opacity duration-300 ease-out group-hover:opacity-0" />
+            <div className="technology-card-image-fade-hover absolute inset-0 opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100" />
+          </div>
           <span
             className={`absolute right-4 top-4 rounded bg-dashboard-chip/80 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] backdrop-blur-md ${badgeToneClass}`}
           >

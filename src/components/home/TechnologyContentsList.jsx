@@ -414,7 +414,7 @@ export default function TechnologyContentsList({
             <div className="flex items-center gap-3">
               <TechnologyArtwork
                 technology={activeTechnology}
-                className="h-12 w-12 shrink-0 rounded-lg border-white/10"
+                className="h-12 w-12 shrink-0 rounded-lg border border-dashboard-border/25"
               />
 
               <div className="min-w-0 flex-1">

@@ -176,7 +176,6 @@ export const technologies = [
     ]
   },
 ];
-
 export const reviewRail = [
   {
     title: "Revisar anotacoes de React",
@@ -202,3 +201,4 @@ export const aiModes = [
   { label: "Refatorar", icon: Wand2 },
   { label: "Comparar", icon: Code2 },
 ];
+

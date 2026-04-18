@@ -13,7 +13,7 @@ export default function TechnologyArtwork({ technology, className = "" }) {
   const image = technology?.image;
 
   return (
-    <div className={`relative overflow-hidden rounded-[1.4rem] border border-white/10 bg-[#081423] ${className}`}>
+    <div className={`relative overflow-hidden bg-[#081423] ${className}`}>
       {image?.src ? (
         <>
           <img

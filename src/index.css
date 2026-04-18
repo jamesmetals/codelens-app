@@ -460,9 +460,16 @@ button {
     rgba(6, 17, 31, 0.4) 88%,
     rgba(6, 17, 31, 0.56) 100%
   );
+  transition: opacity 320ms ease-out;
 }
 
-.technology-card-image-fade {
+/* Clareia o véu sobre a foto alinhado ao hover do card (.group no article) */
+.group:hover .technology-artwork-fade {
+  opacity: 0.62;
+}
+
+/* Degradê que une imagem ao fundo surface — estado normal */
+.technology-card-image-fade-base {
   background: linear-gradient(
     180deg,
     rgba(15, 25, 48, 0) 16%,
@@ -471,6 +478,19 @@ button {
     rgba(15, 25, 48, 0.34) 70%,
     rgba(15, 25, 48, 0.62) 86%,
     #0f1930 100%
+  );
+}
+
+/* Mesmo formato com cor final dashboard-elevated (#141f38) no hover */
+.technology-card-image-fade-hover {
+  background: linear-gradient(
+    180deg,
+    rgba(20, 31, 56, 0) 16%,
+    rgba(20, 31, 56, 0.07) 38%,
+    rgba(20, 31, 56, 0.18) 54%,
+    rgba(20, 31, 56, 0.38) 70%,
+    rgba(20, 31, 56, 0.68) 86%,
+    #141f38 100%
   );
 }
 
