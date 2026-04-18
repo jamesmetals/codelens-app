@@ -19,6 +19,30 @@
     0 28px 80px rgba(1, 9, 20, 0.5),
     0 0 0 1px rgba(157, 208, 255, 0.05);
   --shadow-glow: 0 0 80px rgba(93, 169, 255, 0.16);
+
+  /* Dashboard home — tokens compartilhados */
+  --dashboard-bg: #060e20;
+  --dashboard-sidebar: #091328;
+  --dashboard-surface: #0f1930;
+  --dashboard-elevated: #141f38;
+  --dashboard-text: #dee5ff;
+  --dashboard-muted: #a3aac4;
+  --dashboard-accent: #69daff;
+  --dashboard-accent-mid: #00c0ea;
+  --dashboard-accent-warm: #00e5ff;
+  --dashboard-accent-cta: #002a35;
+  --dashboard-border: #40485d;
+  --dashboard-chip: #192540;
+  --font-dashboard-ui: "Manrope", ui-sans-serif, system-ui, sans-serif;
+}
+
+.dashboard-ui-root {
+  font-family: var(--font-dashboard-ui);
+}
+
+.dashboard-focusring:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--dashboard-accent) 55%, transparent);
+  outline-offset: 2px;
 }
 
 * {

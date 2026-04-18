@@ -5,6 +5,20 @@ export default {
   theme: {
     extend: {
       colors: {
+        dashboard: {
+          bg: "var(--dashboard-bg)",
+          sidebar: "var(--dashboard-sidebar)",
+          surface: "var(--dashboard-surface)",
+          elevated: "var(--dashboard-elevated)",
+          text: "var(--dashboard-text)",
+          muted: "var(--dashboard-muted)",
+          accent: "var(--dashboard-accent)",
+          "accent-mid": "var(--dashboard-accent-mid)",
+          "accent-warm": "var(--dashboard-accent-warm)",
+          "accent-cta": "var(--dashboard-accent-cta)",
+          border: "var(--dashboard-border)",
+          chip: "var(--dashboard-chip)",
+        },
         zinc: {
           950: "#09090b",
           900: "#18181b",
