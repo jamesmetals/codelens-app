@@ -141,6 +141,7 @@ function App() {
   });
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const techListRef = useRef(techList);
+  const debugRunIdRef = useRef(`run-${Date.now()}`);
 
   const navigateTo = (view, options = {}) => {
     const {
@@ -148,6 +149,29 @@ function App() {
       lesson = null,
       technology = activeTechnology ?? techListRef.current[0] ?? technologies[0] ?? null,
     } = options;
+
+    // #region agent log
+    fetch("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "47a2b5" },
+      body: JSON.stringify({
+        sessionId: "47a2b5",
+        runId: debugRunIdRef.current,
+        hypothesisId: "H3",
+        location: "App.jsx:navigateTo",
+        message: "navigateTo called",
+        data: {
+          targetView: view,
+          historyMode,
+          lessonId: lesson?.id ?? null,
+          technologyId: technology?.id ?? null,
+          fromView: currentView,
+          fromLessonId: activeLesson?.id ?? null,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
 
     const nextLesson = view === VIEW_STUDY ? lesson : null;
 
@@ -401,6 +425,26 @@ function App() {
     );
 
     const handlePopState = (event) => {
+      // #region agent log
+      fetch("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "47a2b5" },
+        body: JSON.stringify({
+          sessionId: "47a2b5",
+          runId: debugRunIdRef.current,
+          hypothesisId: "H2",
+          location: "App.jsx:handlePopState",
+          message: "popstate fired",
+          data: {
+            stateView: event?.state?.view ?? null,
+            stateLessonId: event?.state?.lessonId ?? null,
+            stateTechnologyId: event?.state?.technologyId ?? null,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+
       const nextNavigation = resolveNavigationState(event.state, techListRef.current);
       setActiveTechnology(nextNavigation.technology);
       setActiveLesson(nextNavigation.lesson);
@@ -445,6 +489,31 @@ function App() {
     : currentView === VIEW_STUDY && !activeLesson
       ? (resolvedActiveTechnology ? VIEW_TECH_LIST : VIEW_HOME)
       : currentView;
+
+  useEffect(() => {
+    // #region agent log
+    fetch("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "47a2b5" },
+      body: JSON.stringify({
+        sessionId: "47a2b5",
+        runId: debugRunIdRef.current,
+        hypothesisId: "H1",
+        location: "App.jsx:view-resolution-effect",
+        message: "view resolution snapshot",
+        data: {
+          currentView,
+          resolvedView,
+          activeLessonId: activeLesson?.id ?? null,
+          activeTechnologyId: activeTechnology?.id ?? null,
+          resolvedActiveTechnologyId: resolvedActiveTechnology?.id ?? null,
+          techCount: Array.isArray(techList) ? techList.length : 0,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+  }, [activeLesson?.id, activeTechnology?.id, currentView, resolvedActiveTechnology?.id, resolvedView, techList]);
 
   const handleSaveTechnology = async (technologyDraft) => {
     const nextName = String(technologyDraft?.name || "").trim();

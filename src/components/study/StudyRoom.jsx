@@ -135,6 +135,7 @@ export default function StudyRoom({
   onSyncStructure,
   supabaseConfigured,
 }) {
+  const [debugRunId] = useState(() => `run-${Date.now()}`);
   const [localTitle, setLocalTitle] = useState(activeLesson?.title || "");
   const [localSummary, setLocalSummary] = useState(activeLesson?.summary || "");
   const [currentCode, setCurrentCode] = useState(activeLesson?.fullCode || "");
@@ -157,6 +158,26 @@ export default function StudyRoom({
   // mesmo com o mesmo id; resetar título/código nesse caso sobrescrevia edições
   // locais com fullCode desatualizado da lista e reescrevia o contentEditable.
   useEffect(() => {
+    // #region agent log
+    fetch("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "47a2b5" },
+      body: JSON.stringify({
+        sessionId: "47a2b5",
+        runId: debugRunId,
+        hypothesisId: "H4",
+        location: "StudyRoom.jsx:activeLesson-id-effect",
+        message: "StudyRoom sync from activeLesson id",
+        data: {
+          lessonId: activeLesson?.id ?? null,
+          lessonTitleLen: (activeLesson?.title || "").length,
+          fullCodeLen: (activeLesson?.fullCode || "").length,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     // #region agent log
     fetch("http://127.0.0.1:7248/ingest/ebf8239d-0d53-473f-89d0-8079f8a65d8e", {
       method: "POST",
@@ -198,6 +219,31 @@ export default function StudyRoom({
     setAiError("");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intencional: só ao mudar id da lição
   }, [activeLesson?.id]);
+
+  useEffect(() => {
+    return () => {
+      // #region agent log
+      fetch("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "47a2b5" },
+        body: JSON.stringify({
+          sessionId: "47a2b5",
+          runId: debugRunId,
+          hypothesisId: "H5",
+          location: "StudyRoom.jsx:unmount-cleanup",
+          message: "StudyRoom unmounted",
+          data: {
+            lessonIdAtUnmount: activeLesson?.id ?? null,
+            titleLenAtUnmount: (localTitle || "").length,
+            summaryLenAtUnmount: (localSummary || "").length,
+            codeLenAtUnmount: (currentCode || "").length,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+    };
+  }, [activeLesson?.id, currentCode, debugRunId, localSummary, localTitle]);
 
   const handleSave = async () => {
     setIsSaving(true);
