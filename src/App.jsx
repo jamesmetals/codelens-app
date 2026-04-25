@@ -33,6 +33,10 @@ import {
   readStoredTechs,
   writeStoredTechs,
 } from "./studySync";
+import {
+  createDraftLesson,
+  resolveActiveLessonAfterTechListUpdate,
+} from "./utils/studyNavigation";
 import DashboardHome from "./components/home/DashboardHome";
 import TechnologyModal from "./components/home/TechnologyModal";
 import CategoryManagerModal from "./components/home/CategoryManagerModal";
@@ -44,6 +48,24 @@ import AccountPanel from "./components/auth/AccountPanel";
 const VIEW_HOME = "home";
 const VIEW_TECH_LIST = "tech-list";
 const VIEW_STUDY = "study";
+
+function shouldSendDebugTelemetry() {
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const isLoopbackHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  return import.meta.env.DEV && isLoopbackHost && import.meta.env.VITE_ENABLE_DEBUG_TELEMETRY === "true";
+}
+
+function sendDebugTelemetry(url, payload) {
+  if (!shouldSendDebugTelemetry()) return;
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": payload.sessionId || "local" },
+    body: JSON.stringify({
+      ...payload,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
 
 function isKnownView(view) {
   return view === VIEW_HOME || view === VIEW_TECH_LIST || view === VIEW_STUDY;
@@ -123,17 +145,23 @@ function App() {
 
   const storageKey = getStorageKey(authUser?.id);
   const categoriesKey = getCategoriesStorageKey(authUser?.id);
-  const flagsKey = getFlagsStorageKey(authUser?.id);
 
   const [categoryList, setCategoryList] = useState(() => readStoredCategories(getCategoriesStorageKey()));
   const [flagList, setFlagList] = useState(() => readStoredFlags(getFlagsStorageKey()));
   const [techList, setTechList] = useState(() => readStoredTechs(getStorageKey()));
-  const [activeTechnology, setActiveTechnology] = useState(() => readStoredTechs(getStorageKey())[0] || technologies[0]);
-  const [activeLesson, setActiveLesson] = useState(null);
+  const initialNavigationRef = useRef(null);
+  if (!initialNavigationRef.current) {
+    initialNavigationRef.current = resolveNavigationState(
+      typeof window !== "undefined" ? window.history.state : null,
+      techList,
+    );
+  }
+  const [activeTechnology, setActiveTechnology] = useState(() => initialNavigationRef.current.technology);
+  const [activeLesson, setActiveLesson] = useState(() => initialNavigationRef.current.lesson);
   const [isDevBriefOpen, setIsDevBriefOpen] = useState(false);
   const [contextCode, setContextCode] = useState("");
   const [devBriefSeed, setDevBriefSeed] = useState(0);
-  const [currentView, setCurrentView] = useState(VIEW_HOME);
+  const [currentView, setCurrentView] = useState(() => initialNavigationRef.current.view);
   const [technologyModal, setTechnologyModal] = useState({
     open: false,
     mode: "create",
@@ -142,6 +170,8 @@ function App() {
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const techListRef = useRef(techList);
   const debugRunIdRef = useRef(`run-${Date.now()}`);
+  const activeTechnologyRef = useRef(activeTechnology);
+  const currentViewRef = useRef(currentView);
 
   const navigateTo = (view, options = {}) => {
     const {
@@ -150,30 +180,25 @@ function App() {
       technology = activeTechnology ?? techListRef.current[0] ?? technologies[0] ?? null,
     } = options;
 
-    // #region agent log
-    fetch("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "47a2b5" },
-      body: JSON.stringify({
-        sessionId: "47a2b5",
-        runId: debugRunIdRef.current,
-        hypothesisId: "H3",
-        location: "App.jsx:navigateTo",
-        message: "navigateTo called",
-        data: {
-          targetView: view,
-          historyMode,
-          lessonId: lesson?.id ?? null,
-          technologyId: technology?.id ?? null,
-          fromView: currentView,
-          fromLessonId: activeLesson?.id ?? null,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+    sendDebugTelemetry("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
+      sessionId: "47a2b5",
+      runId: debugRunIdRef.current,
+      hypothesisId: "H3",
+      location: "App.jsx:navigateTo",
+      message: "navigateTo called",
+      data: {
+        targetView: view,
+        historyMode,
+        lessonId: lesson?.id ?? null,
+        technologyId: technology?.id ?? null,
+        fromView: currentView,
+        fromLessonId: activeLesson?.id ?? null,
+      },
+    });
 
     const nextLesson = view === VIEW_STUDY ? lesson : null;
+    activeTechnologyRef.current = technology;
+    currentViewRef.current = view;
 
     setActiveTechnology(technology);
     setActiveLesson(nextLesson);
@@ -191,10 +216,24 @@ function App() {
     setActiveLesson((current) => {
       if (!current) return null;
 
-      for (const tech of nextTechs) {
-        const nextLesson = tech.contents.find((lesson) => lesson.id === current.id);
-        if (nextLesson) return nextLesson;
-      }
+      const nextLesson = resolveActiveLessonAfterTechListUpdate(current, nextTechs, {
+        technologyId: activeTechnologyRef.current?.id ?? null,
+        view: currentViewRef.current,
+      });
+      if (nextLesson) return nextLesson;
+
+      sendDebugTelemetry("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
+        sessionId: "47a2b5",
+        runId: debugRunIdRef.current,
+        hypothesisId: "H1",
+        location: "App.jsx:applyTechList:setActiveLesson",
+        message: "activeLesson not found in nextTechs; resetting to null",
+        data: {
+          currentLessonId: current?.id ?? null,
+          currentLessonTitle: current?.title ?? null,
+          nextTechsCount: Array.isArray(nextTechs) ? nextTechs.length : 0,
+        },
+      });
 
       return null;
     });
@@ -409,43 +448,33 @@ function App() {
   }, [techList]);
 
   useEffect(() => {
+    activeTechnologyRef.current = activeTechnology;
+  }, [activeTechnology]);
+
+  useEffect(() => {
+    currentViewRef.current = currentView;
+  }, [currentView]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
-    const initialNavigation = resolveNavigationState(window.history.state, techListRef.current);
-    setActiveTechnology(initialNavigation.technology);
-    setActiveLesson(initialNavigation.lesson);
-    setCurrentView(initialNavigation.view);
-    window.history.replaceState(
-      createNavigationState(
-        initialNavigation.view,
-        initialNavigation.technology,
-        initialNavigation.lesson,
-      ),
-      "",
-    );
-
     const handlePopState = (event) => {
-      // #region agent log
-      fetch("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "47a2b5" },
-        body: JSON.stringify({
-          sessionId: "47a2b5",
-          runId: debugRunIdRef.current,
-          hypothesisId: "H2",
-          location: "App.jsx:handlePopState",
-          message: "popstate fired",
-          data: {
-            stateView: event?.state?.view ?? null,
-            stateLessonId: event?.state?.lessonId ?? null,
-            stateTechnologyId: event?.state?.technologyId ?? null,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
+      sendDebugTelemetry("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
+        sessionId: "47a2b5",
+        runId: debugRunIdRef.current,
+        hypothesisId: "H2",
+        location: "App.jsx:handlePopState",
+        message: "popstate fired",
+        data: {
+          stateView: event?.state?.view ?? null,
+          stateLessonId: event?.state?.lessonId ?? null,
+          stateTechnologyId: event?.state?.technologyId ?? null,
+        },
+      });
 
       const nextNavigation = resolveNavigationState(event.state, techListRef.current);
+      activeTechnologyRef.current = nextNavigation.technology;
+      currentViewRef.current = nextNavigation.view;
       setActiveTechnology(nextNavigation.technology);
       setActiveLesson(nextNavigation.lesson);
       setCurrentView(nextNavigation.view);
@@ -491,28 +520,21 @@ function App() {
       : currentView;
 
   useEffect(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "47a2b5" },
-      body: JSON.stringify({
-        sessionId: "47a2b5",
-        runId: debugRunIdRef.current,
-        hypothesisId: "H1",
-        location: "App.jsx:view-resolution-effect",
-        message: "view resolution snapshot",
-        data: {
-          currentView,
-          resolvedView,
-          activeLessonId: activeLesson?.id ?? null,
-          activeTechnologyId: activeTechnology?.id ?? null,
-          resolvedActiveTechnologyId: resolvedActiveTechnology?.id ?? null,
-          techCount: Array.isArray(techList) ? techList.length : 0,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+    sendDebugTelemetry("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
+      sessionId: "47a2b5",
+      runId: debugRunIdRef.current,
+      hypothesisId: "H1",
+      location: "App.jsx:view-resolution-effect",
+      message: "view resolution snapshot",
+      data: {
+        currentView,
+        resolvedView,
+        activeLessonId: activeLesson?.id ?? null,
+        activeTechnologyId: activeTechnology?.id ?? null,
+        resolvedActiveTechnologyId: resolvedActiveTechnology?.id ?? null,
+        techCount: Array.isArray(techList) ? techList.length : 0,
+      },
+    });
   }, [activeLesson?.id, activeTechnology?.id, currentView, resolvedActiveTechnology?.id, resolvedView, techList]);
 
   const handleSaveTechnology = async (technologyDraft) => {
@@ -815,13 +837,17 @@ function App() {
   const handleUpdateContent = async (techId, updatedContent) => {
     const targetTechnology = techList.find((tech) => tech.id === techId);
     const technologyName = targetTechnology?.name || activeTechnology?.name;
+    const normalizedContent = {
+      ...updatedContent,
+      isDraft: false,
+    };
 
     const nextTechList = techList.map((tech) => {
       if (tech.id === techId) {
-        const contentIdx = tech.contents.findIndex((content) => content.id === updatedContent.id);
+        const contentIdx = tech.contents.findIndex((content) => content.id === normalizedContent.id);
         const newContents = contentIdx === -1
-          ? [updatedContent, ...tech.contents]
-          : tech.contents.map((content) => (content.id === updatedContent.id ? updatedContent : content));
+          ? [normalizedContent, ...tech.contents]
+          : tech.contents.map((content) => (content.id === normalizedContent.id ? normalizedContent : content));
 
         return { ...tech, contents: newContents, lessons: newContents.length };
       }
@@ -838,7 +864,7 @@ function App() {
 
     try {
       setSyncNotice("Salvando seu estudo na nuvem...");
-      const payload = createStudyEntryPayload(authUser.id, technologyName, updatedContent);
+      const payload = createStudyEntryPayload(authUser.id, technologyName, normalizedContent);
       const { error } = await runRemoteQuery(supabase
         .from(supabaseStudyEntriesTable)
         .upsert(payload, { onConflict: "user_id,technology_name,lesson_id" }));
@@ -854,6 +880,14 @@ function App() {
       setSyncNotice("Salvo localmente. A nuvem nao respondeu agora.");
       return { location: "local" };
     }
+  };
+
+  const handleCreateContentForTechnology = (technology) => {
+    if (!technology?.id) return;
+    navigateTo(VIEW_STUDY, {
+      technology,
+      lesson: createDraftLesson(),
+    });
   };
 
   const handleSignInWithGoogle = async () => {
@@ -1011,6 +1045,7 @@ function App() {
             navigateTo(VIEW_TECH_LIST, { technology });
           }}
           onSignInWithGoogle={handleSignInWithGoogle}
+          onCreateContentForTechnology={handleCreateContentForTechnology}
           setActiveTechnology={setActiveTechnology}
           supabaseConfigured={supabaseConfigured}
           technologies={techList}
@@ -1027,6 +1062,7 @@ function App() {
            authUser={authUser}
            flags={flagList}
            onBack={() => navigateTo(VIEW_HOME)}
+           onCreateContent={() => handleCreateContentForTechnology(resolvedActiveTechnology)}
            onDeleteContent={handleDeleteContent}
            onEditTechnology={openEditTechnologyModal}
            onOpenAccount={() => setShowAccountPanel(true)}
@@ -1080,7 +1116,7 @@ function App() {
         categoryList={categoryList}
         onProceedToEditor={(createdTech) => {
           closeTechnologyModal();
-          navigateTo(VIEW_STUDY, { technology: createdTech, lesson: null });
+          handleCreateContentForTechnology(createdTech);
         }}
       />
 

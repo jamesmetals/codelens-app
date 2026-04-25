@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.59.1",
     "@tauri-apps/cli": "^2.0.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -41,7 +42,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "express": "^4.21.0",
     "globals": "^16.5.0",
-    "nodemailer": "^6.9.16",
+    "nodemailer": "^8.0.5",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "vite": "^8.0.0-beta.13"

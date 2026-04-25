@@ -65,7 +65,7 @@ function CategoryDroppable({ category, technologies, onDelete }) {
     >
       <header className="flex items-center justify-between border-b border-[#40485d]/20 bg-[#0f1930] px-4 py-3">
         <div className="flex flex-col">
-          <span className="font-['Manrope'] text-sm font-bold text-[#dee5ff]">
+          <span className="font-sans text-sm font-bold text-[#dee5ff]">
             {category.name}
           </span>
           <span className="text-[10px] uppercase tracking-widest text-[#a3aac4]">
@@ -76,7 +76,7 @@ function CategoryDroppable({ category, technologies, onDelete }) {
           <button
             type="button"
             onClick={() => onDelete(category)}
-            className="rounded p-1 text-slate-400 opacity-60 hover:bg-rose-500/10 hover:text-rose-400 hover:opacity-100"
+            className="app-btn app-btn-danger app-btn-icon opacity-70 hover:opacity-100"
             title="Excluir Categoria"
           >
             <Trash2 className="h-4 w-4" />
@@ -211,7 +211,7 @@ export default function CategoryManagerModal({
               <Folder className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="font-['Manrope'] text-lg font-bold text-white">
+              <h2 className="font-sans text-lg font-bold text-white">
                 Distribuição de Tecnologia
               </h2>
               <p className="text-xs text-slate-400">
@@ -221,7 +221,7 @@ export default function CategoryManagerModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
+            className="app-btn app-btn-ghost app-btn-icon"
           >
             <X className="h-5 w-5" />
           </button>
@@ -242,7 +242,7 @@ export default function CategoryManagerModal({
             <button
               type="submit"
               disabled={!newCategoryName.trim()}
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-gradient-to-r from-sky-400 to-cyan-400 px-5 text-sm font-bold text-[#083445] transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50"
+              className="app-btn app-btn-primary h-11 px-5 text-sm font-bold"
             >
               <Plus className="h-4 w-4" /> Cadastrar categoria
             </button>

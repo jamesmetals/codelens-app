@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   BookMarked,
   ChevronLeft,
   ChevronRight,
-  Code2,
   Loader2,
   MessageSquareText,
   Save,
-  Sparkles,
   Wand2,
-  X,
 } from "lucide-react";
 
 import GoogleMark from "../shared/GoogleMark";
@@ -19,103 +16,76 @@ import DynamicEditor from "./DynamicEditor";
 
 import FlagManagerModal from "../home/FlagManagerModal";
 
-async function fetchSummary(title, code) {
+function shouldSendDebugTelemetry() {
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
   const isLoopbackHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  return import.meta.env.DEV && isLoopbackHost && import.meta.env.VITE_ENABLE_DEBUG_TELEMETRY === "true";
+}
 
-  if (import.meta.env.DEV && isLoopbackHost && import.meta.env.VITE_GROQ_API_KEY) {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: "Voce e um assistente tecnico de estudos. Responda sempre em portugues brasileiro. Seja objetivo e tecnico.",
-          },
-          {
-            role: "user",
-            content: `Escreva um resumo tecnico e objetivo de 1 a 2 frases.\nTitulo: "${title}"\nConteudo:\n${code.slice(0, 3000)}\n\nResponda apenas com o texto do resumo, sem prefixos.`,
-          },
-        ],
-        max_tokens: 200,
-        temperature: 0.4,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `Erro ${res.status}`);
-    }
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content?.trim() ?? "";
-  }
-
-  const res = await fetch("/api/generate-summary", {
+function sendDebugTelemetry(url, payload, runId) {
+  if (!shouldSendDebugTelemetry()) return;
+  fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, code }),
-  });
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": payload.sessionId || "local" },
+    body: JSON.stringify({
+      ...payload,
+      runId: payload.runId || runId,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error || `Erro ${res.status}`);
-  }
-
-  const data = await res.json();
-  return data.summary ?? "";
+function autoResizeTextareaNode(element) {
+  if (!element) return;
+  // Colapsa antes de medir: com min-height antigo, scrollHeight acompanhava a caixa e só "acordava" depois de várias linhas.
+  element.style.height = "0px";
+  const h = element.scrollHeight;
+  element.style.height = `${h}px`;
 }
 
 function NoteCard({ note, onHighlight, onTextChange }) {
   const hasSpan = Boolean(note.spanId);
+  const snippetText = note.codeSnippet?.trim();
+  const textareaRef = useRef(null);
+
+  useLayoutEffect(() => {
+    autoResizeTextareaNode(textareaRef.current);
+  }, [note.content]);
 
   return (
-    <article
-      className={`surface-lift overflow-hidden rounded-xl border bg-[#141f38] hover:border-[#69daff]/20 ${
-        note.isNew ? "border-white/20" : "border-[#40485d]/20"
-      }`}
-    >
-      <div className={`h-1 w-full ${note.led?.bg || "bg-slate-500"}`} />
+    <article className="py-1.5">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 text-xs leading-5 text-[#a3aac4]">
+            {snippetText ? (
+              <span className={`${note.led?.text || "text-[#dee5ff]"} whitespace-pre-wrap font-mono`}>
+                {snippetText}
+              </span>
+            ) : null}
+            <span className="mx-1 text-[#6d758c]">-</span>
+            <span className="font-sans text-[10px] uppercase tracking-[0.16em] text-[#6d758c]">{note.time}</span>
+          </div>
 
-      <div className="p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <span className="rounded bg-black/20 px-2 py-1 font-['Manrope'] text-[10px] uppercase tracking-[0.18em] text-[#6d758c]">
-            {note.time}
-          </span>
-
-          {hasSpan ? (
+          {hasSpan && snippetText ? (
             <button
               type="button"
               onClick={onHighlight}
-              className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.16em] text-[#69daff] transition-colors hover:text-white"
+              className="shrink-0 font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-[#69daff] transition-colors hover:text-white"
             >
               Ver no codigo
             </button>
           ) : null}
         </div>
 
-        {note.codeSnippet ? (
-          <button
-            type="button"
-            onClick={onHighlight}
-            className={`mb-3 block w-full rounded-lg border bg-[#060e20] p-3 text-left ${note.led?.border || "border-white/10"}`}
-          >
-            <pre className={`whitespace-pre-wrap font-mono text-[11px] leading-6 ${note.led?.text || "text-slate-200"}`}>
-              {note.codeSnippet}
-            </pre>
-          </button>
-        ) : null}
-
         <textarea
+          ref={textareaRef}
+          rows={1}
           value={note.content}
-          onChange={(event) => onTextChange(note.id, event.target.value)}
+          onChange={(event) => {
+            onTextChange(note.id, event.target.value);
+          }}
           placeholder="Suas conclusoes sobre esse trecho..."
-          className="min-h-[72px] w-full resize-none rounded-lg border border-[#40485d]/20 bg-[#060e20] p-3 text-sm text-[#dee5ff] placeholder:text-[#6d758c] focus:border-[#69daff]/40 focus:outline-none"
+          className="min-h-[1.5rem] w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-sm leading-6 text-[#dee5ff] placeholder:text-[#6d758c] focus:outline-none"
         />
       </div>
     </article>
@@ -144,8 +114,6 @@ export default function StudyRoom({
   const [activeSpanId, setActiveSpanId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [aiError, setAiError] = useState("");
   const [notesCollapsed, setNotesCollapsed] = useState(false);
   const [showFlagManager, setShowFlagManager] = useState(false);
   const [infoCollapsed, setInfoCollapsed] = useState(false); // For title/summary section
@@ -158,13 +126,10 @@ export default function StudyRoom({
   // mesmo com o mesmo id; resetar título/código nesse caso sobrescrevia edições
   // locais com fullCode desatualizado da lista e reescrevia o contentEditable.
   useEffect(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "47a2b5" },
-      body: JSON.stringify({
+    sendDebugTelemetry(
+      "http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2",
+      {
         sessionId: "47a2b5",
-        runId: debugRunId,
         hypothesisId: "H4",
         location: "StudyRoom.jsx:activeLesson-id-effect",
         message: "StudyRoom sync from activeLesson id",
@@ -173,16 +138,13 @@ export default function StudyRoom({
           lessonTitleLen: (activeLesson?.title || "").length,
           fullCodeLen: (activeLesson?.fullCode || "").length,
         },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+      },
+      debugRunId,
+    );
 
-    // #region agent log
-    fetch("http://127.0.0.1:7248/ingest/ebf8239d-0d53-473f-89d0-8079f8a65d8e", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "836bc4" },
-      body: JSON.stringify({
+    sendDebugTelemetry(
+      "http://127.0.0.1:7248/ingest/ebf8239d-0d53-473f-89d0-8079f8a65d8e",
+      {
         sessionId: "836bc4",
         runId: "post-fix",
         hypothesisId: "A",
@@ -192,10 +154,9 @@ export default function StudyRoom({
           lessonId: activeLesson?.id ?? null,
           fullCodeLen: (activeLesson?.fullCode || "").length,
         },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+      },
+      debugRunId,
+    );
     if (!activeLesson?.id) {
       setLocalTitle("");
       setLocalSummary("");
@@ -204,7 +165,6 @@ export default function StudyRoom({
       setLessonFlags([]);
       setActiveSpanId(null);
       setSaveFeedback("");
-      setAiError("");
       return;
     }
 
@@ -216,19 +176,15 @@ export default function StudyRoom({
     setLessonFlags(lesson.flags || []);
     setActiveSpanId(null);
     setSaveFeedback("");
-    setAiError("");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intencional: só ao mudar id da lição
   }, [activeLesson?.id]);
 
   useEffect(() => {
     return () => {
-      // #region agent log
-      fetch("http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "47a2b5" },
-        body: JSON.stringify({
+      sendDebugTelemetry(
+        "http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2",
+        {
           sessionId: "47a2b5",
-          runId: debugRunId,
           hypothesisId: "H5",
           location: "StudyRoom.jsx:unmount-cleanup",
           message: "StudyRoom unmounted",
@@ -238,12 +194,41 @@ export default function StudyRoom({
             summaryLenAtUnmount: (localSummary || "").length,
             codeLenAtUnmount: (currentCode || "").length,
           },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
+        },
+        debugRunId,
+      );
     };
   }, [activeLesson?.id, currentCode, debugRunId, localSummary, localTitle]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (event) => {
+      const interestingKey = event.key === "Backspace" || event.key === "BrowserBack";
+      if (!interestingKey && !(event.altKey && event.key === "ArrowLeft")) return;
+
+      sendDebugTelemetry(
+        "http://127.0.0.1:7503/ingest/e9208422-b9d4-4023-8ce8-d968ff184ec2",
+        {
+          sessionId: "47a2b5",
+          hypothesisId: "H2",
+          location: "StudyRoom.jsx:window-keydown",
+          message: "global keydown while in StudyRoom",
+          data: {
+            key: event.key,
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            shiftKey: event.shiftKey,
+            metaKey: event.metaKey,
+            targetTag: event.target?.tagName ?? null,
+            targetEditable: Boolean(event.target?.isContentEditable),
+          },
+        },
+        debugRunId,
+      );
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown, true);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown, true);
+  }, [debugRunId]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -269,25 +254,6 @@ export default function StudyRoom({
       setSaveFeedback(error.message || "Falha ao salvar o conteudo.");
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleGenerateSummary = async () => {
-    if (!currentCode.trim() && !localTitle.trim()) {
-      setAiError("Adicione algum conteudo ou titulo antes de gerar.");
-      return;
-    }
-
-    setIsGenerating(true);
-    setAiError("");
-
-    try {
-      const summary = await fetchSummary(localTitle, currentCode || localTitle);
-      setLocalSummary(summary);
-    } catch (error) {
-      setAiError(error.message || "Erro ao gerar resumo.");
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -326,32 +292,32 @@ export default function StudyRoom({
   };
 
   return (
-    <div className="relative min-h-screen bg-[#060e20] text-[#dee5ff]">
-      <div className="fixed inset-0 bg-[#060e20]" />
+    <div className="dashboard-ui-root relative min-h-screen bg-dashboard-bg text-dashboard-text">
+      <div className="fixed inset-0 bg-dashboard-bg" />
 
       <header
         data-reveal="view-nav"
-        className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-[#40485d]/10 bg-[#060e20]/85 px-4 backdrop-blur-md sm:px-6 lg:px-8"
+        className="fixed top-0 z-50 flex h-16 w-full items-center justify-between bg-dashboard-bg/85 px-4 backdrop-blur-md sm:px-6 lg:px-8"
       >
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#40485d]/20 bg-[#141f38] text-[#a3aac4] transition-colors hover:text-white"
+            className="app-btn app-btn-ghost app-btn-icon dashboard-focusring h-10 w-10 border-dashboard-border/20 bg-dashboard-elevated text-dashboard-muted hover:text-dashboard-text"
             aria-label="Voltar"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
 
-          <div className="hidden h-10 w-px bg-[#40485d]/20 sm:block" />
+          <div className="hidden h-10 w-px bg-dashboard-border/20 sm:block" />
 
-          <BookMarked className="hidden h-5 w-5 text-[#69daff] sm:block" />
+          <BookMarked className="hidden h-5 w-5 text-dashboard-accent sm:block" />
 
           <div className="min-w-0">
-            <p className="truncate font-['Manrope'] text-lg font-bold text-[#dee5ff]">
+            <p className="truncate font-sans text-lg font-bold text-dashboard-text">
               {localTitle || "Sem titulo"}
             </p>
-            <p className="mt-1 font-['Manrope'] text-[10px] uppercase tracking-[0.24em] text-[#a3aac4]">
+            <p className="mt-1 font-sans text-[10px] uppercase tracking-[0.24em] text-dashboard-muted">
               Biblioteca {activeTechnology?.name || "Tecnologia"}
             </p>
           </div>
@@ -359,7 +325,7 @@ export default function StudyRoom({
 
         <div className="flex items-center gap-x-3 sm:gap-x-4">
           {saveFeedback ? (
-            <p className="hidden max-w-[220px] truncate text-xs text-[#a3aac4] xl:block">
+            <p className="hidden max-w-[220px] truncate text-xs text-dashboard-muted xl:block">
               {saveFeedback}
             </p>
           ) : null}
@@ -368,7 +334,7 @@ export default function StudyRoom({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="inline-flex items-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 font-['Manrope'] text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+            className="app-btn dashboard-focusring border-emerald-400/30 bg-emerald-500/10 px-4 py-2 font-sans text-sm font-bold text-emerald-300 hover:bg-emerald-500/20"
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {isSaving ? "Salvando..." : "Salvar"}
@@ -377,7 +343,7 @@ export default function StudyRoom({
           <button
             type="button"
             onClick={() => onOpenDevBrief(currentCode)}
-            className="hidden items-center gap-2 rounded-full border border-[#69daff]/30 bg-[#69daff]/10 px-4 py-2 font-['Manrope'] text-sm font-bold text-[#69daff] transition-colors hover:bg-[#69daff]/20 sm:inline-flex"
+            className="app-btn dashboard-focusring hidden rounded-full border-dashboard-accent/30 bg-dashboard-accent/10 px-4 py-2 font-sans text-sm font-bold text-dashboard-accent hover:bg-dashboard-accent/20 sm:inline-flex"
           >
             <Wand2 className="h-4 w-4" />
             Analise Assistida
@@ -387,7 +353,7 @@ export default function StudyRoom({
             <button
               type="button"
               onClick={onOpenAccount}
-              className="h-8 w-8 overflow-hidden rounded-full border border-[#40485d]/30"
+              className="dashboard-focusring h-8 w-8 overflow-hidden rounded-full border border-dashboard-border/30"
               aria-label="Abrir conta"
             >
               {avatarUrl ? (
@@ -398,7 +364,7 @@ export default function StudyRoom({
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <span className="flex h-full w-full items-center justify-center bg-[#141f38] text-xs font-semibold text-[#dee5ff]">
+                <span className="flex h-full w-full items-center justify-center bg-dashboard-elevated text-xs font-semibold text-dashboard-text">
                   {getAvatarFallback(authUser)}
                 </span>
               )}
@@ -408,7 +374,7 @@ export default function StudyRoom({
               type="button"
               onClick={onSignInWithGoogle}
               disabled={!supabaseConfigured}
-              className="inline-flex items-center gap-2 rounded-md border border-[#40485d]/30 bg-[#141f38] px-3 py-2 font-['Manrope'] text-xs font-bold text-[#dee5ff] transition-colors hover:border-[#69daff]/40 hover:text-[#69daff] disabled:cursor-not-allowed disabled:opacity-60"
+              className="app-btn app-btn-ghost dashboard-focusring border-dashboard-border/30 bg-dashboard-elevated px-3 py-2 font-sans text-xs font-bold text-dashboard-text hover:border-dashboard-accent/40 hover:text-dashboard-accent"
             >
               <GoogleMark className="h-4 w-4" />
               Entrar com Google
@@ -419,15 +385,15 @@ export default function StudyRoom({
 
       <main
         data-reveal="view-main"
-        className="relative z-10 min-h-screen bg-[#060e20] px-4 pb-10 pt-20 sm:px-6 lg:px-8"
+        className="relative z-10 min-h-screen bg-dashboard-bg px-4 pb-10 pt-20 sm:px-6 lg:px-8"
       >
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
-          <div className="min-w-0 flex-1 space-y-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+          <div className="min-w-0 flex-1 space-y-4">
             <section className="surface-lift rounded-xl border border-[#40485d]/10 bg-[#0f1930] hover:border-[#69daff]/15">
               <div className="flex items-center justify-between border-b border-[#40485d]/10 bg-[#091328] px-4 py-3">
                 <div className="flex items-center gap-2">
                   <BookMarked className="h-4 w-4 text-[#a3aac4]" />
-                  <span className="font-['Manrope'] text-[11px] text-[#a3aac4]">Informações do conteúdo</span>
+                  <span className="font-sans text-[11px] text-[#a3aac4]">Informações do conteúdo</span>
                 </div>
                 <button
                   type="button"
@@ -440,15 +406,12 @@ export default function StudyRoom({
               </div>
 
               {!infoCollapsed && (
-                <div className="p-6 space-y-5">
+                <div className="space-y-5 px-6 py-[11px]">
                   <div>
                     <div className="mb-2 flex items-center justify-between gap-4">
-                      <label className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
+                      <label className="font-sans text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
                         Titulo do conteudo
                       </label>
-                      <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#69daff]">
-                        Essencial
-                      </span>
                     </div>
                     <input
                       type="text"
@@ -459,23 +422,10 @@ export default function StudyRoom({
                   </div>
 
                   <div>
-                    <div className="mb-2 flex items-center justify-between gap-4">
-                      <label className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
+                    <div className="mb-2">
+                      <label className="font-sans text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
                         Resumo
                       </label>
-                      <button
-                        type="button"
-                        onClick={handleGenerateSummary}
-                        disabled={isGenerating}
-                        className="inline-flex items-center gap-2 font-['Manrope'] text-[11px] font-bold text-[#69daff] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isGenerating ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-3.5 w-3.5" />
-                        )}
-                        {isGenerating ? "Gerando..." : "Gerar resumo com IA"}
-                      </button>
                     </div>
 
                     <textarea
@@ -484,30 +434,12 @@ export default function StudyRoom({
                       rows={3}
                       className="w-full rounded-lg border border-[#40485d]/20 bg-black/20 px-4 py-3 text-sm leading-7 text-[#dee5ff] placeholder:text-[#6d758c] focus:border-[#69daff]/40 focus:outline-none"
                     />
-
-                    {aiError ? (
-                      <p className="mt-2 inline-flex items-center gap-2 text-xs text-rose-300">
-                        <X className="h-3.5 w-3.5" />
-                        {aiError}
-                      </p>
-                    ) : null}
                   </div>
                 </div>
               )}
             </section>
 
             <section className="surface-lift overflow-hidden rounded-xl border border-[#40485d]/10 bg-[#0f1930] hover:border-[#69daff]/15">
-              <div className="flex items-center justify-between border-b border-[#40485d]/10 bg-[#091328] px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Code2 className="h-4 w-4 text-[#a3aac4]" />
-                  <span className="font-mono text-[11px] text-[#a3aac4]">editor</span>
-                </div>
-
-                <span className="hidden text-[10px] italic text-[#6d758c] lg:block">
-                  Selecione qualquer trecho para criar uma anotacao vinculada
-                </span>
-              </div>
-
               <div className="h-[calc(100vh-23rem)] min-h-[420px]">
                 <DynamicEditor
                   initialContent={currentCode}
@@ -523,18 +455,18 @@ export default function StudyRoom({
             </section>
           </div>
 
-          <aside className={`order-last shrink-0 xl:sticky xl:top-20 xl:h-[calc(100vh-6.5rem)] ${notesCollapsed ? "xl:w-20" : "xl:w-[340px]"}`}>
+          <aside className={`order-last shrink-0 xl:sticky xl:top-20 xl:h-[calc(100vh-6.5rem)] ${notesCollapsed ? "xl:w-20" : "xl:w-[320px]"}`}>
             <section className="surface-lift flex h-full overflow-hidden rounded-xl border border-[#40485d]/10 bg-[#0f1930] hover:border-[#69daff]/15">
               <div className="flex min-w-0 flex-1 flex-col">
-                <div className="flex items-center gap-3 border-b border-[#40485d]/10 bg-[#091328] px-5 py-4">
+                <div className="flex items-center gap-2 border-b border-[#40485d]/10 bg-[#091328] px-4 py-3">
                   <MessageSquareText className="h-4 w-4 text-[#a3aac4]" />
                   {!notesCollapsed ? (
-                    <h3 className="font-['Manrope'] text-lg font-bold text-[#dee5ff]">
+                    <h3 className="font-sans text-base font-bold text-[#dee5ff]">
                       Anotacoes conectadas
                     </h3>
                   ) : null}
                   {notes.length ? (
-                    <span className={`${notesCollapsed ? "" : "ml-auto"} rounded bg-black/20 px-2 py-1 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.16em] text-[#a3aac4]`}>
+                    <span className={`${notesCollapsed ? "" : "ml-auto"} rounded bg-black/20 px-2 py-1 font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-[#a3aac4]`}>
                       {notes.length}
                     </span>
                   ) : null}
@@ -549,9 +481,9 @@ export default function StudyRoom({
                 </div>
 
                 {!notesCollapsed ? (
-                  <div className="custom-scrollbar flex-1 overflow-y-auto p-4">
+                  <div className="custom-scrollbar flex-1 overflow-y-auto p-3">
                     {notes.length ? (
-                      <div className="space-y-4">
+                      <div className="space-y-0">
                         {notes.map((note) => (
                           <NoteCard
                             key={note.id}
@@ -574,7 +506,7 @@ export default function StudyRoom({
                   <div className="flex flex-1 items-center justify-center bg-[#0f1930]">
                     <div className="flex flex-col items-center gap-3 px-3 text-center">
                       <MessageSquareText className="h-5 w-5 text-[#6d758c]" />
-                      <span className="font-['Manrope'] text-[10px] uppercase tracking-[0.22em] text-[#6d758c] [writing-mode:vertical-rl] [text-orientation:mixed]">
+                      <span className="font-sans text-[10px] uppercase tracking-[0.22em] text-[#6d758c] [writing-mode:vertical-rl] [text-orientation:mixed]">
                         Anotacoes
                       </span>
                     </div>

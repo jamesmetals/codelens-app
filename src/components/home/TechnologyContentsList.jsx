@@ -1,4 +1,4 @@
-import { createElement, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
 import {
   Bell,
   BookMarked,
@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   LayoutGrid,
   LayoutList,
+  Menu,
   Pencil,
   Plus,
   Search,
@@ -20,42 +21,9 @@ import {
 
 import GoogleMark from "../shared/GoogleMark";
 import CodenLensLogo from "../shared/CodenLensLogo";
+import AppSidebar from "../shared/AppSidebar";
 import TechnologyArtwork from "./TechnologyArtwork";
 import { getAvatarFallback, getAvatarUrl } from "../../utils/authUi";
-
-function SidebarItem({ active = false, icon, label, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group flex w-full items-center px-8 py-3 text-left transition-all ${
-        active
-          ? "border-r-2 border-[#69daff] bg-gradient-to-r from-[#69daff]/10 to-transparent text-[#69daff]"
-          : "text-[#a3aac4] hover:bg-[#141f38] hover:text-[#dee5ff]"
-      }`}
-    >
-      {createElement(icon, { className: "mr-3 h-[18px] w-[18px]" })}
-      <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em]">
-        {label}
-      </span>
-    </button>
-  );
-}
-
-function SupportLink({ icon, label, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex items-center py-2 text-[#a3aac4] transition-colors hover:text-[#dee5ff]"
-    >
-      {createElement(icon, { className: "mr-2 h-4 w-4" })}
-      <span className="font-['Manrope'] text-[10px] uppercase tracking-[0.24em]">
-        {label}
-      </span>
-    </button>
-  );
-}
 
 function ListCard({ content, onDelete, onOpen, flagsList }) {
   const contentFlags = (content.flags || []).map(id => flagsList.find(f => f.id === id)).filter(Boolean);
@@ -75,7 +43,7 @@ function ListCard({ content, onDelete, onOpen, flagsList }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="line-clamp-2 font-['Manrope'] text-[15px] font-bold leading-5 text-[#dee5ff] mr-8">
+            <h3 className="line-clamp-2 font-sans text-[15px] font-bold leading-5 text-[#dee5ff] mr-8">
               {content.title}
             </h3>
 
@@ -86,7 +54,7 @@ function ListCard({ content, onDelete, onOpen, flagsList }) {
                   className="flag-neon-pill flex items-center rounded-md px-2.5 py-1"
                   style={{ "--flag": flag.color }}
                 >
-                  <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest" style={{ color: flag.color }}>
+                  <span className="font-sans text-[10px] font-bold uppercase tracking-widest" style={{ color: flag.color }}>
                     {flag.name}
                   </span>
                 </div>
@@ -128,7 +96,7 @@ function BlockCard({ content, onDelete, onOpen, flagsList }) {
         className="flex h-full w-full flex-col gap-3 p-4 text-left"
       >
         <div className="relative flex items-start justify-between gap-3">
-          <h3 className="line-clamp-2 pr-12 font-['Manrope'] text-[15px] font-bold leading-5 text-[#dee5ff]">
+          <h3 className="line-clamp-2 pr-12 font-sans text-[15px] font-bold leading-5 text-[#dee5ff]">
             {content.title}
           </h3>
           
@@ -181,7 +149,7 @@ function CompactCard({ content, onDelete, onOpen, flagsList }) {
       >
         <div className="flex min-w-0 items-center gap-3">
           <GripVertical className="h-4 w-4 shrink-0 text-[#6d758c]" />
-          <span className="truncate pr-8 font-['Manrope'] text-sm font-semibold text-[#dee5ff]">
+          <span className="truncate pr-8 font-sans text-sm font-semibold text-[#dee5ff]">
             {content.title}
           </span>
           {content.flags && content.flags.length > 0 && flagsList && (
@@ -239,7 +207,7 @@ function ConfirmDeleteModal({
       <div className="modal-enter-panel relative z-10 w-full max-w-md rounded-xl border border-[#40485d]/30 bg-[#0f1930] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-['Manrope'] text-lg font-bold text-[#dee5ff]">
+            <h2 className="font-sans text-lg font-bold text-[#dee5ff]">
               Excluir conteudo
             </h2>
             <p className="mt-2 text-sm leading-6 text-[#a3aac4]">
@@ -295,6 +263,7 @@ export default function TechnologyContentsList({
   authUser,
   flags,
   onBack,
+  onCreateContent,
   onDeleteContent,
   onEditTechnology,
   onOpenAccount,
@@ -304,6 +273,7 @@ export default function TechnologyContentsList({
 }) {
   const [view, setView] = useState("lista");
   const [search, setSearch] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, item: null });
   const [deleteError, setDeleteError] = useState("");
   const [isDeletingContent, setIsDeletingContent] = useState(false);
@@ -325,6 +295,15 @@ export default function TechnologyContentsList({
     },
     [contents, search],
   );
+
+  useEffect(() => {
+    if (!mobileNavOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileNavOpen]);
 
   if (!activeTechnology) return null;
 
@@ -360,111 +339,110 @@ export default function TechnologyContentsList({
     }
   };
 
-  const openCreator = () => onOpenStudyRoom({
-    id: Date.now(),
-    title: "Novo conteudo",
-    summary: "",
-    fullCode: "",
-    tags: [],
-    status: "em-andamento",
-    highlights: [],
-    studyNotes: [],
-    createdAt: new Date().toISOString().slice(0, 10),
-  });
+  const openCreator = () => onCreateContent?.();
 
-  return (
-    <div className="relative min-h-screen bg-[#060e20] text-[#dee5ff]">
-      <div className="fixed inset-0 bg-[#060e20]" />
+  const sidebarNavItems = [
+    { id: "panel", icon: LayoutDashboard, label: "Painel", onClick: onBack },
+    { id: "content", icon: BookMarked, label: "Conteudos", active: true, onClick: () => {} },
+    {
+      id: "account",
+      icon: UserCircle2,
+      label: isLogged ? "Conta" : "Entrar",
+      onClick: isLogged ? onOpenAccount : onSignInWithGoogle,
+    },
+    { id: "tracking", icon: Shield, label: "Acompanhamento", onClick: () => {} },
+  ];
 
-      <aside
-        data-reveal="view-nav"
-        className="fixed left-0 top-0 z-[60] hidden h-full w-64 flex-col gap-y-6 bg-[#091328] py-8 lg:flex"
-      >
-        <div className="mb-4 px-8">
-          <button type="button" onClick={onBack} className="text-left">
-            <div className="flex items-center gap-3 mb-2">
-              <CodenLensLogo size={36} />
-              <h1 className="font-['Manrope'] text-xl font-black tracking-tight">
-                <span className="text-[#dee5ff]">Coden</span><span className="text-[#00e5ff]">Lens</span>
-              </h1>
-            </div>
-            <p className="mt-1 font-['Manrope'] text-[10px] uppercase tracking-widest text-[#a3aac4]">
-              Biblioteca ativa
-            </p>
-          </button>
-        </div>
+  const sidebarSupportItems = [
+    { id: "docs", icon: FileText, label: "Documentacao", onClick: () => {} },
+    { id: "help", icon: HelpCircle, label: "Ajuda", onClick: () => {} },
+  ];
 
-        <nav className="flex-1 space-y-1">
-          <SidebarItem icon={LayoutDashboard} label="Painel" onClick={onBack} />
-          <SidebarItem active icon={BookMarked} label="Conteudos" onClick={() => {}} />
-          <SidebarItem
-            icon={UserCircle2}
-            label={isLogged ? "Conta" : "Entrar"}
-            onClick={isLogged ? onOpenAccount : onSignInWithGoogle}
+  const sidebarFooter = (
+    <>
+      <p className="font-sans text-[10px] uppercase tracking-widest text-dashboard-muted">
+        Tecnologia ativa
+      </p>
+
+      <div className="mt-3 rounded-xl border border-dashboard-border/20 bg-dashboard-surface p-4">
+        <div className="flex items-center gap-3">
+          <TechnologyArtwork
+            technology={activeTechnology}
+            className="h-12 w-12 shrink-0 rounded-lg border border-dashboard-border/25"
           />
-          <SidebarItem icon={Shield} label="Acompanhamento" onClick={() => {}} />
-        </nav>
 
-        <div className="px-8">
-          <p className="font-['Manrope'] text-[10px] uppercase tracking-widest text-[#6d758c]">
-            Tecnologia ativa
-          </p>
-
-          <div className="mt-3 rounded-xl border border-[#40485d]/20 bg-[#0f1930] p-4">
-            <div className="flex items-center gap-3">
-              <TechnologyArtwork
-                technology={activeTechnology}
-                className="h-12 w-12 shrink-0 rounded-lg border border-dashboard-border/25"
-              />
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-['Manrope'] text-sm font-bold text-[#dee5ff]">
-                  {activeTechnology.name}
-                </p>
-                <p className="mt-1 text-xs text-[#a3aac4]">
-                  {filtered.length} conteudos
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onEditTechnology(activeTechnology)}
-                className="text-[#a3aac4] transition-colors hover:text-[#69daff]"
-                aria-label={`Editar ${activeTechnology.name}`}
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-            </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-sans text-sm font-bold text-dashboard-text">
+              {activeTechnology.name}
+            </p>
+            <p className="mt-1 text-xs text-dashboard-muted">
+              {filtered.length} conteudos
+            </p>
           </div>
 
           <button
             type="button"
-            onClick={openCreator}
-            className="mt-4 w-full rounded-md bg-gradient-to-br from-[#69daff] to-[#00c0ea] py-2 font-['Manrope'] text-xs font-bold text-[#002a35] shadow-lg shadow-[#69daff]/20"
+            onClick={() => onEditTechnology(activeTechnology)}
+            className="dashboard-focusring text-dashboard-muted transition-colors hover:text-dashboard-accent"
+            aria-label={`Editar ${activeTechnology.name}`}
           >
-            Criar novo conteudo
+            <Pencil className="h-4 w-4" />
           </button>
         </div>
+      </div>
 
-        <div className="mt-auto px-8">
-          <div className="space-y-1 border-t border-[#40485d]/10 pt-4">
-            <SupportLink icon={FileText} label="Documentacao" onClick={() => {}} />
-            <SupportLink icon={HelpCircle} label="Ajuda" onClick={() => {}} />
+      <button
+        type="button"
+        onClick={openCreator}
+        className="dashboard-focusring mt-4 w-full rounded-md bg-[#9ed0ff] py-2 font-sans text-xs font-bold text-[#06111f] shadow-sm transition-colors hover:bg-[#b3e0ff]"
+      >
+        Criar novo conteudo
+      </button>
+    </>
+  );
+
+  return (
+    <div className="dashboard-ui-root relative min-h-screen bg-dashboard-bg text-dashboard-text">
+      <div className="fixed inset-0 bg-dashboard-bg" />
+
+      <AppSidebar
+        titleNode={(
+          <div className="mb-2 flex items-center gap-3">
+            <CodenLensLogo size={36} />
+            <h1 className="font-sans text-xl font-black tracking-tight">
+              <span className="text-dashboard-text">Coden</span>
+              <span className="text-dashboard-accent-warm">Lens</span>
+            </h1>
           </div>
-        </div>
-      </aside>
+        )}
+        subtitle="Biblioteca ativa"
+        onTitleClick={onBack}
+        navItems={sidebarNavItems}
+        supportItems={sidebarSupportItems}
+        footerNode={sidebarFooter}
+        mobileOpen={mobileNavOpen}
+        onMobileOpenChange={setMobileNavOpen}
+      />
 
       <div data-reveal="view-main" className="min-h-screen">
-      <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between bg-[#060e20]/80 px-4 backdrop-blur-md sm:px-6 lg:ml-64 lg:max-w-[calc(100%-16rem)] lg:px-8">
+      <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between bg-dashboard-bg/80 px-4 backdrop-blur-md sm:px-6 lg:ml-64 lg:max-w-[calc(100%-16rem)] lg:px-8">
         <div className="flex flex-1 items-center gap-x-6">
+          <button
+            type="button"
+            className="dashboard-focusring mr-2 flex h-10 w-10 items-center justify-center rounded-md border border-dashboard-border/30 text-dashboard-muted lg:hidden"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Abrir menu de navegação"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
           <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#a3aac4]" />
+            <Search className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-dashboard-muted" />
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar conteudos..."
-              className="w-full rounded-lg border-none bg-black py-2 pl-10 pr-4 text-sm text-[#dee5ff] placeholder:text-[#6d758c] focus:ring-2 focus:ring-[#69daff]/50"
+              className="w-full rounded-lg border-none bg-black py-2 pl-10 pr-4 text-sm text-dashboard-text placeholder:text-[#6d758c] focus:ring-2 focus:ring-dashboard-accent/50"
             />
           </div>
         </div>
@@ -473,19 +451,19 @@ export default function TechnologyContentsList({
           <button
             type="button"
             onClick={openCreator}
-            className="hidden rounded-md bg-gradient-to-r from-[#69daff] to-[#00c0ea] px-4 py-2 font-['Manrope'] text-sm font-bold tracking-tight text-[#002a35] transition-all hover:shadow-lg sm:block"
+            className="dashboard-focusring hidden rounded-md bg-[#9ed0ff] px-4 py-2 font-sans text-sm font-bold tracking-tight text-[#06111f] shadow-sm transition-colors hover:bg-[#b3e0ff] sm:block"
           >
             Novo conteudo
           </button>
 
-          <div className="hidden items-center gap-x-3 text-[#a3aac4] sm:flex">
-            <button className="transition-colors hover:text-[#69daff]">
+          <div className="hidden items-center gap-x-3 text-dashboard-muted sm:flex">
+            <button className="dashboard-focusring transition-colors hover:text-dashboard-accent">
               <Bell className="h-5 w-5" />
             </button>
             <button
               type="button"
               onClick={isLogged ? onOpenAccount : onSignInWithGoogle}
-              className="transition-colors hover:text-[#69daff]"
+              className="dashboard-focusring transition-colors hover:text-dashboard-accent"
             >
               <Settings className="h-5 w-5" />
             </button>
@@ -495,7 +473,7 @@ export default function TechnologyContentsList({
             <button
               type="button"
               onClick={onOpenAccount}
-              className="h-8 w-8 overflow-hidden rounded-full border border-[#40485d]/30"
+              className="dashboard-focusring h-8 w-8 overflow-hidden rounded-full border border-dashboard-border/30"
               aria-label="Abrir conta"
             >
               {avatarUrl ? (
@@ -506,7 +484,7 @@ export default function TechnologyContentsList({
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <span className="flex h-full w-full items-center justify-center bg-[#141f38] text-xs font-semibold text-[#dee5ff]">
+                <span className="flex h-full w-full items-center justify-center bg-dashboard-elevated text-xs font-semibold text-dashboard-text">
                   {getAvatarFallback(authUser)}
                 </span>
               )}
@@ -516,7 +494,7 @@ export default function TechnologyContentsList({
               type="button"
               onClick={onSignInWithGoogle}
               disabled={!supabaseConfigured}
-              className="inline-flex items-center gap-2 rounded-md border border-[#40485d]/30 bg-[#141f38] px-3 py-2 font-['Manrope'] text-xs font-bold text-[#dee5ff] transition-colors hover:border-[#69daff]/40 hover:text-[#69daff] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-md border border-dashboard-border/30 bg-dashboard-elevated px-3 py-2 font-sans text-xs font-bold text-dashboard-text transition-colors hover:border-dashboard-accent/40 hover:text-dashboard-accent disabled:cursor-not-allowed disabled:opacity-60"
             >
               <GoogleMark className="h-4 w-4" />
               Entrar com Google
@@ -531,7 +509,7 @@ export default function TechnologyContentsList({
             <div>
               <div className="flex items-center gap-3">
                 <span className="inline-block h-8 w-1 rounded-full bg-[#69daff]" />
-                <h2 className="font-['Manrope'] text-4xl font-extrabold tracking-tighter text-[#dee5ff]">
+                <h2 className="font-sans text-4xl font-extrabold tracking-tighter text-[#dee5ff]">
                   {activeTechnology.name}
                 </h2>
               </div>
@@ -540,7 +518,7 @@ export default function TechnologyContentsList({
               </p>
             </div>
 
-            <span className="pt-2 font-['Manrope'] text-sm text-[#a3aac4]">
+            <span className="pt-2 font-sans text-sm text-[#a3aac4]">
               {filtered.length} conteudos
             </span>
           </div>
@@ -556,7 +534,7 @@ export default function TechnologyContentsList({
                 key={viewOption.id}
                 type="button"
                 onClick={() => setView(viewOption.id)}
-                className={`flex items-center gap-2 rounded-md px-3 py-1.5 font-['Manrope'] text-xs font-semibold transition-colors ${
+                className={`flex items-center gap-2 rounded-md px-3 py-1.5 font-sans text-xs font-semibold transition-colors ${
                   view === viewOption.id
                     ? "bg-[#192540] text-[#dee5ff]"
                     : "text-[#6d758c] hover:text-[#dee5ff]"
@@ -568,14 +546,14 @@ export default function TechnologyContentsList({
             ))}
           </div>
 
-          <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
+          <span className="font-sans text-[10px] font-bold uppercase tracking-[0.24em] text-[#6d758c]">
             {view === "lista" ? "Modo em lista" : "Modo em blocos"}
           </span>
         </div>
 
         {filtered.length === 0 ? (
           <section className="rounded-xl border border-[#40485d]/10 bg-[#0f1930] px-6 py-16 text-center">
-            <p className="font-['Manrope'] text-lg font-bold text-[#dee5ff]">
+            <p className="font-sans text-lg font-bold text-[#dee5ff]">
               {search ? "Nenhum conteudo encontrado" : "Sem conteudos ainda"}
             </p>
             <p className="mt-2 text-sm text-[#a3aac4]">

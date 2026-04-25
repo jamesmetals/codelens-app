@@ -52,13 +52,16 @@ VITE_SUPABASE_STUDY_TABLE=study_entries
 ```env
 GROQ_API_KEY=
 ALLOWED_ORIGIN=
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
 ```
 
 Notas:
 
 - `GROQ_API_KEY` deve ficar apenas no servidor.
-- `ALLOWED_ORIGIN` limita quem pode usar `/api/generate-summary`.
-- O fallback `VITE_GROQ_API_KEY` existe apenas para localhost em desenvolvimento.
+- `ALLOWED_ORIGIN` pode conter 1 ou mais origens separadas por virgula.
+- `SUPABASE_URL` e `SUPABASE_ANON_KEY` sao usados para validar o token JWT no backend.
+- `VITE_ENABLE_DEBUG_TELEMETRY=true` habilita telemetria local de debug apenas em localhost.
 
 ## Setup do Supabase
 
@@ -82,7 +85,7 @@ Para habilitar a sincronizacao remota:
 
 - Credenciais de servidor nao devem ser commitadas.
 - O editor sanitiza o conteudo antes de reinjetar no DOM.
-- A rota `/api/generate-summary` aplica validacao de origem, limite de taxa e limite de payload.
+- A rota `/api/generate-summary` exige token valido do Supabase, aplica validacao estrita de payload, validacao de origem, limite de taxa e limite de payload.
 - O acesso ao Supabase depende de RLS aplicado na tabela `study_entries`.
 
 ## Deploy

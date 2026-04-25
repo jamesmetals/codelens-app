@@ -12,7 +12,6 @@ export default function FlagManagerModal({
   const [selectedFlagFilter, setSelectedFlagFilter] = useState(null);
   
   // CRUD states
-  const [editingId, setEditingId] = useState(null);
   const [flagName, setFlagName] = useState("");
   const [flagColor, setFlagColor] = useState("");
 
@@ -37,7 +36,6 @@ export default function FlagManagerModal({
     onSyncStructure(null, null, [...flags, newFlag]);
     setFlagName("");
     setFlagColor("");
-    setEditingId(null);
   };
 
   const handleDeleteFlag = (id) => {
@@ -73,7 +71,7 @@ export default function FlagManagerModal({
               <Tag className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-['Manrope'] text-lg font-bold text-[#dee5ff]">
+              <h2 className="font-sans text-lg font-bold text-[#dee5ff]">
                 Gerenciador de Flags
               </h2>
               <p className="text-xs text-[#a3aac4]">
@@ -81,7 +79,7 @@ export default function FlagManagerModal({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-md p-2 text-[#a3aac4] hover:bg-[#141f38] hover:text-[#dee5ff] transition-colors">
+          <button onClick={onClose} className="app-btn app-btn-ghost app-btn-icon">
             <X className="h-5 w-5" />
           </button>
         </header>
@@ -91,8 +89,8 @@ export default function FlagManagerModal({
           <aside className="w-1/3 border-r border-[#40485d]/20 bg-[#091328]/50 flex flex-col">
             <div className="p-4 border-b border-[#40485d]/20">
               <button 
-                onClick={() => { setActiveTab("crud"); setEditingId(null); setFlagName(""); }}
-                className="w-full rounded-md border border-[#69daff]/30 bg-[#69daff]/10 py-2.5 font-['Manrope'] text-[11px] font-bold tracking-widest text-[#69daff] uppercase transition-colors hover:bg-[#69daff]/20"
+                onClick={() => { setActiveTab("crud"); setFlagName(""); }}
+                className="app-btn app-btn-primary w-full py-2.5 font-sans text-[11px] font-bold tracking-widest uppercase"
               >
                 + Nova Flag
               </button>
@@ -114,13 +112,13 @@ export default function FlagManagerModal({
                       className="flag-neon-dot h-3 w-3 rounded-full"
                       style={{ backgroundColor: flag.color || "#6d758c", "--flag": flag.color || "#6d758c" }}
                     />
-                    <span className="font-['Manrope'] text-sm font-bold text-[#dee5ff]">
+                    <span className="font-sans text-sm font-bold text-[#dee5ff]">
                       {flag.name}
                     </span>
                   </div>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleDeleteFlag(flag.id); }}
-                    className="opacity-0 transition-opacity hover:text-rose-400 group-hover:opacity-100"
+                    className="app-btn app-btn-danger app-btn-icon opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -139,7 +137,7 @@ export default function FlagManagerModal({
           <main className="w-2/3 bg-[#060e20] p-6 flex flex-col overflow-y-auto">
             {activeTab === "crud" ? (
               <div className="max-w-md mx-auto w-full mt-10">
-                <h3 className="font-['Manrope'] text-lg font-bold text-[#dee5ff] mb-6">
+                <h3 className="font-sans text-lg font-bold text-[#dee5ff] mb-6">
                   Criar Nova Flag
                 </h3>
                 <div className="space-y-4">
@@ -169,7 +167,7 @@ export default function FlagManagerModal({
                   </div>
                   <button 
                     onClick={handleCreateFlag}
-                    className="w-full rounded-md bg-[#69daff] py-3 font-['Manrope'] text-sm font-bold text-[#002a35] hover:bg-[#00c0ea] transition-colors"
+                    className="app-btn app-btn-primary w-full py-3 font-sans text-sm font-bold"
                   >
                     Salvar Flag
                   </button>
@@ -177,7 +175,7 @@ export default function FlagManagerModal({
               </div>
             ) : (
               <div className="h-full flex flex-col">
-                <h3 className="font-['Manrope'] text-lg font-bold text-[#dee5ff] mb-6 border-b border-[#40485d]/10 pb-4">
+                <h3 className="font-sans text-lg font-bold text-[#dee5ff] mb-6 border-b border-[#40485d]/10 pb-4">
                   {selectedFlagFilter 
                     ? `Conteúdos Filtrados (${filteredContents.length})`
                     : "Selecione uma flag ao lado"
@@ -195,7 +193,7 @@ export default function FlagManagerModal({
                             </span>
                             <BookMarked className="h-4 w-4 text-[#a3aac4]" />
                           </div>
-                          <h4 className="font-['Manrope'] text-md font-bold text-[#dee5ff] line-clamp-1">
+                          <h4 className="font-sans text-md font-bold text-[#dee5ff] line-clamp-1">
                             {content.title}
                           </h4>
                           {content.summary && (

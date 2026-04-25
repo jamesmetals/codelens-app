@@ -199,7 +199,7 @@ function ImageCropModal({ imageDraft, isOpen, onApply, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+            className="app-btn app-btn-ghost app-btn-icon"
             aria-label="Fechar edicao da imagem"
           >
             <X className="h-4 w-4" />
@@ -243,7 +243,7 @@ function ImageCropModal({ imageDraft, isOpen, onApply, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+            className="app-btn app-btn-ghost px-5 py-2.5 text-sm font-semibold"
           >
             Cancelar
           </button>
@@ -251,7 +251,7 @@ function ImageCropModal({ imageDraft, isOpen, onApply, onClose }) {
           <button
             type="button"
             onClick={() => onApply(draft)}
-            className="inline-flex items-center gap-2 rounded-lg border border-sky-400/25 bg-gradient-to-br from-sky-300 to-cyan-400 px-5 py-2.5 text-sm font-bold text-[#083445] shadow-[0_12px_32px_rgba(73,211,255,0.18)] transition-transform hover:scale-[1.01]"
+            className="app-btn app-btn-primary px-5 py-2.5 text-sm font-bold"
           >
             <Check className="h-4 w-4" />
             Aplicar
@@ -468,7 +468,7 @@ export default function TechnologyModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+              className="app-btn app-btn-ghost app-btn-icon"
               aria-label="Fechar modal"
             >
               <X className="h-4 w-4" />
@@ -491,14 +491,14 @@ export default function TechnologyModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 rounded-xl bg-[#141f38] px-4 py-3.5 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                  className="app-btn app-btn-ghost flex-1 px-4 py-3.5 text-sm font-semibold"
                 >
                   Concluir
                 </button>
                 <button
                   type="button"
                   onClick={() => onProceedToEditor(successTech)}
-                  className="flex-1 rounded-xl bg-gradient-to-br from-sky-400 to-cyan-500 px-4 py-3.5 text-sm font-bold text-[#083445] shadow-[0_12px_32px_rgba(73,211,255,0.18)] transition-transform hover:scale-[1.02]"
+                  className="app-btn app-btn-primary flex-1 px-4 py-3.5 text-sm font-bold"
                 >
                   + Adicionar conteudo
                 </button>
@@ -556,7 +556,7 @@ export default function TechnologyModal({
                     type="button"
                     onClick={handleLoadUrl}
                     disabled={isLoadingImage}
-                    className="absolute right-2 top-1/2 inline-flex h-9 -translate-y-1/2 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 transition-colors hover:bg-sky-500/15 disabled:cursor-wait disabled:opacity-70"
+                    className="app-btn app-btn-primary absolute right-2 top-1/2 h-9 -translate-y-1/2 px-3 text-xs font-semibold disabled:cursor-wait"
                   >
                     {isLoadingImage ? <LoaderCircle className="h-4 w-4 animate-spin" /> : "Carregar"}
                   </button>
@@ -608,7 +608,7 @@ export default function TechnologyModal({
                     <button
                       type="button"
                       onClick={() => setIsCropOpen(true)}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-white/8 bg-white/[0.03] px-3 text-slate-300 transition-colors hover:border-sky-300/25 hover:text-sky-100"
+                      className="app-btn app-btn-ghost h-9 px-3"
                       aria-label="Editar imagem"
                       title="Editar imagem"
                     >
@@ -623,7 +623,7 @@ export default function TechnologyModal({
                         setUrlInput("");
                         setIsCropOpen(false);
                       }}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-white/8 bg-white/[0.03] px-3 text-slate-400 transition-colors hover:border-rose-300/25 hover:text-rose-200"
+                      className="app-btn app-btn-danger h-9 px-3"
                       aria-label="Excluir imagem"
                       title="Excluir imagem"
                     >
@@ -648,7 +648,7 @@ export default function TechnologyModal({
                     type="button"
                     onClick={() => setIsDeleteConfirmOpen(true)}
                     disabled={isSaving || isDeleting}
-                    className="inline-flex items-center gap-2 rounded-lg border border-rose-400/20 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-200 transition-colors hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="app-btn app-btn-danger px-4 py-2.5 text-sm font-semibold"
                   >
                     <Trash2 className="h-4 w-4" />
                     Excluir tecnologia
@@ -660,7 +660,7 @@ export default function TechnologyModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+                  className="app-btn app-btn-ghost px-5 py-2.5 text-sm font-semibold"
                 >
                   Cancelar
                 </button>
@@ -668,7 +668,7 @@ export default function TechnologyModal({
                 <button
                   type="submit"
                   disabled={isSaving || isDeleting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-sky-300 to-cyan-400 px-6 py-2.5 text-sm font-bold text-[#083445] shadow-[0_12px_32px_rgba(73,211,255,0.18)] transition-transform hover:scale-[1.01] disabled:cursor-wait disabled:opacity-70"
+                  className="app-btn app-btn-primary px-6 py-2.5 text-sm font-bold disabled:cursor-wait"
                 >
                   {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
                   {actionLabel}
@@ -724,7 +724,7 @@ export default function TechnologyModal({
                 type="button"
                 onClick={() => setIsDeleteConfirmOpen(false)}
                 disabled={isDeleting}
-                className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="app-btn app-btn-ghost px-4 py-2.5 text-sm font-semibold"
               >
                 Cancelar
               </button>
@@ -733,7 +733,7 @@ export default function TechnologyModal({
                 type="button"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="inline-flex items-center gap-2 rounded-lg border border-rose-400/20 bg-rose-500/15 px-4 py-2.5 text-sm font-bold text-rose-100 transition-colors hover:bg-rose-500/20 disabled:cursor-wait disabled:opacity-70"
+                className="app-btn app-btn-danger px-4 py-2.5 text-sm font-bold disabled:cursor-wait"
               >
                 {isDeleting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 Excluir

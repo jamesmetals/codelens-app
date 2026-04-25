@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bold,
   Check,
-  Code,
   Italic,
   List,
   PaintBucket,
@@ -39,6 +38,24 @@ const FONT_FAMILIES = [
 const MIN_SIZE = 11;
 const MAX_SIZE = 28;
 const STORAGE_KEY = "codenlens_text_palette";
+
+function shouldSendDebugTelemetry() {
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const isLoopbackHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  return import.meta.env.DEV && isLoopbackHost && import.meta.env.VITE_ENABLE_DEBUG_TELEMETRY === "true";
+}
+
+function sendDebugTelemetry(url, payload) {
+  if (!shouldSendDebugTelemetry()) return;
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": payload.sessionId || "local" },
+    body: JSON.stringify({
+      ...payload,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -255,30 +272,23 @@ export default function DynamicEditor({
     // the user typing, `initialContent` will equal what `onInput` already
     // put in the DOM, so we skip the update to preserve the cursor.
     const guardEqual = initialContent === externalContentRef.current;
-    // #region agent log
-    fetch("http://127.0.0.1:7248/ingest/ebf8239d-0d53-473f-89d0-8079f8a65d8e", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "836bc4" },
-      body: JSON.stringify({
-        sessionId: "836bc4",
-        runId: "pre-fix",
-        hypothesisId: "B",
-        location: "DynamicEditor.jsx:initialContent-effect",
-        message: guardEqual ? "SKIP innerHTML (guard match)" : "APPLY innerHTML (guard mismatch)",
-        data: {
-          guardEqual,
-          initialLen: (initialContent ?? "").length,
-          refLen: (externalContentRef.current ?? "").length,
-          initialEndsNewline:
-            typeof initialContent === "string" && /\n$/.test(initialContent),
-          refEndsNewline:
-            typeof externalContentRef.current === "string" &&
-            /\n$/.test(externalContentRef.current),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+    sendDebugTelemetry("http://127.0.0.1:7248/ingest/ebf8239d-0d53-473f-89d0-8079f8a65d8e", {
+      sessionId: "836bc4",
+      runId: "pre-fix",
+      hypothesisId: "B",
+      location: "DynamicEditor.jsx:initialContent-effect",
+      message: guardEqual ? "SKIP innerHTML (guard match)" : "APPLY innerHTML (guard mismatch)",
+      data: {
+        guardEqual,
+        initialLen: (initialContent ?? "").length,
+        refLen: (externalContentRef.current ?? "").length,
+        initialEndsNewline:
+          typeof initialContent === "string" && /\n$/.test(initialContent),
+        refEndsNewline:
+          typeof externalContentRef.current === "string" &&
+          /\n$/.test(externalContentRef.current),
+      },
+    });
     if (guardEqual) return;
 
     externalContentRef.current = initialContent;
@@ -503,7 +513,6 @@ export default function DynamicEditor({
         <Sep />
 
         <ToolBtn icon={<List size={13} />} onClick={() => execCmd("insertUnorderedList")} title="Lista" />
-        <ToolBtn icon={<Code size={13} />} onClick={() => execCmd("formatBlock", "PRE")} title="Bloco de codigo" />
 
         <Sep />
 
@@ -599,7 +608,7 @@ export default function DynamicEditor({
                         className={`flag-neon-dot h-3 w-3 flex-shrink-0 rounded-full ${isActive ? "" : "opacity-40"}`}
                         style={{ backgroundColor: flag.color, "--flag": flag.color }}
                       />
-                      <span className={`truncate flex-1 font-['Manrope'] ${isActive ? "text-[#dee5ff] font-bold" : "text-[#a3aac4]"}`}>
+                      <span className={`truncate flex-1 font-sans ${isActive ? "text-[#dee5ff] font-bold" : "text-[#a3aac4]"}`}>
                         {flag.name}
                       </span>
                       {isActive && <Check size={12} className="text-[#69daff]" />}
@@ -645,25 +654,18 @@ export default function DynamicEditor({
             // DOM re-render (which would reset the cursor) when the parent
             // propagates this same value back through `initialContent`.
             externalContentRef.current = text;
-            // #region agent log
-            fetch("http://127.0.0.1:7248/ingest/ebf8239d-0d53-473f-89d0-8079f8a65d8e", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "836bc4" },
-              body: JSON.stringify({
-                sessionId: "836bc4",
-                runId: "pre-fix",
-                hypothesisId: "C",
-                location: "DynamicEditor.jsx:onInput",
-                message: "input: innerText length + tail sample",
-                data: {
-                  len: text.length,
-                  tail: text.slice(-24),
-                  endsNewline: /\n$/.test(text),
-                },
-                timestamp: Date.now(),
-              }),
-            }).catch(() => {});
-            // #endregion
+            sendDebugTelemetry("http://127.0.0.1:7248/ingest/ebf8239d-0d53-473f-89d0-8079f8a65d8e", {
+              sessionId: "836bc4",
+              runId: "pre-fix",
+              hypothesisId: "C",
+              location: "DynamicEditor.jsx:onInput",
+              message: "input: innerText length + tail sample",
+              data: {
+                len: text.length,
+                tail: text.slice(-24),
+                endsNewline: /\n$/.test(text),
+              },
+            });
             if (onChange) {
               onChange(text);
             }

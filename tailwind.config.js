@@ -33,7 +33,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Space Grotesk", "ui-sans-serif", "system-ui"],
+        sans: ["Inter", "ui-sans-serif", "system-ui"],
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular"],
       },
       borderRadius: {

@@ -419,19 +419,17 @@ function SectionRail({
   group,
   maxContentCount,
   onEditTechnology,
+  onCreateContentForTechnology,
   onOpenTechnology,
   displayMode = "cards",
 }) {
   const trackRef = useRef(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  useEffect(() => {
-    setIsCollapsed(false);
-  }, [displayMode]);
-
   const scrollTrackForward = useCallback(() => {
     trackRef.current?.scrollBy({ left: 348, behavior: "smooth" });
   }, []);
+  const primaryTechnology = group.items?.[0] || null;
 
   return (
     <section className="group/section relative mb-14 last:mb-6">
@@ -458,10 +456,13 @@ function SectionRail({
         {displayMode === "cards" ? (
           <button
             type="button"
-            onClick={scrollTrackForward}
+            onClick={() => {
+              if (primaryTechnology) onCreateContentForTechnology(primaryTechnology);
+            }}
+            disabled={!primaryTechnology}
             className="dashboard-focusring text-xs font-bold uppercase tracking-[0.18em] text-dashboard-muted transition-colors hover:text-dashboard-accent"
           >
-            Ver mais
+            Adicionar conteudo
           </button>
         ) : (
           <span className="text-xs font-bold uppercase tracking-[0.18em] text-dashboard-border/50" aria-hidden>
@@ -556,7 +557,7 @@ function SortableSectionRail({ id, group, ...props }) {
       >
         <LayoutDashboard className="h-4 w-4" />
       </div>
-      <SectionRail group={group} displayMode={props.displayMode} {...props} />
+      <SectionRail key={`${id}-${props.displayMode}`} group={group} displayMode={props.displayMode} {...props} />
     </div>
   );
 }
@@ -569,6 +570,7 @@ export default function DashboardHome({
   onOpenAccount,
   onSelectTechnology,
   onSignInWithGoogle,
+  onCreateContentForTechnology,
   setActiveTechnology,
   supabaseConfigured,
   technologies,
@@ -872,6 +874,7 @@ export default function DashboardHome({
                     group={group}
                     displayMode={displayMode}
                     maxContentCount={maxContentCount}
+                    onCreateContentForTechnology={onCreateContentForTechnology}
                     onEditTechnology={onEditTechnology}
                     onOpenTechnology={openTechnology}
                   />
